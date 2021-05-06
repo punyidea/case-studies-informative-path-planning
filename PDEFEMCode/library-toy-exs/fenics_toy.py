@@ -6,13 +6,14 @@ This code runs the FEM solution using a square mesh on
 from dolfin import *
 import matplotlib.pyplot as plt
 
-n = 50
+n = 500
 # Create mesh and define function space
 mesh = UnitSquareMesh(n, n)
 V = FunctionSpace(mesh, 'P', 1)
 
 # Define boundary condition
 u_D = Expression('1 + x[0]*x[0] + 2*x[1]*x[1]', degree=2)
+
 #Todo: Ensure solution is numerically accurate.
 
 def boundary(x, on_boundary):
