@@ -17,12 +17,12 @@ def setup_function_space(n):
             The mesh is a unit square mesh with n sub-squares.
             Triangular subdivisions are obtained by going diagonally up and right,
             see UnitSquareMesh function documentation.
-        - V,  The FENICS function space on this mesh. The "hat function" is used as a basis.
+        - fn_space,  The FENICS function space on this mesh. The "hat function" is used as a basis.
     """
     # Create mesh and define function space
     mesh = fc.UnitSquareMesh(n, n)
-    V = fc.FunctionSpace(mesh, 'P', 1)
-    return mesh,V
+    fn_space = fc.FunctionSpace(mesh, 'P', 1)
+    return mesh,fn_space
 
 # # Define boundary condition
 # u_D = Constant('-6')
