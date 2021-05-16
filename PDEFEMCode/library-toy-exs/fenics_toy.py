@@ -6,7 +6,8 @@ This code runs the FEM solution using a square mesh on
 from dolfin import *
 import matplotlib.pyplot as plt
 
-n = 500
+
+n = 10
 # Create mesh and define function space
 mesh = UnitSquareMesh(n, n)
 V = FunctionSpace(mesh, 'P', 1)
@@ -54,4 +55,4 @@ print('error_L2  =', error_L2)
 print('error_max =', error_max)
 
 # Hold plot
-plt.show()
+plot(u, interactive=True)
