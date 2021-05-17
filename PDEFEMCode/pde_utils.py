@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import RegularGridInterpolator
 
+### To remove?
 def setup_function_space(n):
     """
     Sets up the function space on the unit square, with n subdivisions.
@@ -25,6 +26,27 @@ def setup_function_space(n):
     fn_space = fc.FunctionSpace(mesh, 'P', 1)
     return mesh,fn_space
 
+def setup_rectangular_function_space(nx, ny, P0, P1):
+    """
+    Sets up the dicrete function space on a rectangle with lower left corner P0, upper right corner P1.
+    This includes preparing the mesh and basis functions on the mesh.
+
+    :param P0: np.array of two coordinates, indicating the lower left rectangle of the mesh
+    :param P1: np.array of two coordinates, indicating the upper right rectangle of the mesh
+
+    :return:
+        - mesh, a mesh on the rectangle with lower left corner P0, upper right corner P1.
+            nx means a nx+1 uniform subdivision in the x direction, analogously for ny
+            Hence we have a discretization of nx*ny rectangular cells, of 2*nx*ny triangles
+            Triangular subdivisions are obtained by going diagonally up and right
+            https://fenicsproject.org/olddocs/dolfin/2019.1.0/python/demos/built-in-meshes/demo_built-in-meshes.py.html
+        - fn_space, the FENICS function space of  linear FE on this mesh. The "hat functions" are used as a basis.
+    """
+    # Create mesh and define function space
+    mesh = fc.RectangleMesh(fc.Point(P0[0], P0[1]), fc.Point(P1[0], P1[1]), nx, ny)
+    fn_space = fc.FunctionSpace(mesh, 'P', 1)
+    return mesh, fn_space
+
 # # Define boundary condition
 # u_D = Constant('-6')
 #
@@ -32,6 +54,21 @@ def setup_function_space(n):
 #     return on_boundary
 #
 # bc = DirichletBC(V, u_D, boundary)
+
+def setup_time_discretization(T, Nt):
+    """
+
+    :param T: because we study the PDE in [0,T]
+    :param Nt: for time discretization, we only look at a uniform dicretization of [0,T] of Nt+1 instants
+
+    :return:
+        - dt: dt  = T/Nt
+        - times: a vector of Nt+1 evenly spaced time instants 0, dt, 2*dt, ... T
+    """
+    # Create mesh and define function space
+    dt = 1/Nt
+    times = np.linspace(0, T, Nt+1)
+    return dt, times
 
 def variational_formulation(u_trial,v_test,LHS, RHS,RHS_fn, LHS_args = None, RHS_args=None):
     '''
@@ -60,10 +97,9 @@ def variational_formulation(u_trial,v_test,LHS, RHS,RHS_fn, LHS_args = None, RHS
     RHS_args = RHS_args if RHS_args is not None else {}
 
     #set up integrals using these forms.
-    LHS_int = LHS(u_trial,v_test, **LHS_args)
-    RHS_int = RHS(v_test,RHS_fn, **RHS_args)
-    return LHS_int,RHS_int
-
+    LHS_int = LHS(u_trial, v_test, **LHS_args)
+    RHS_int = RHS(v_test, RHS_fn, **RHS_args)
+    return LHS_int, RHS_int
 
 def solve_pde(Fn_space,LHS_int,RHS_int,bc=None):
     '''
@@ -80,8 +116,23 @@ def solve_pde(Fn_space,LHS_int,RHS_int,bc=None):
     fc.solve(LHS_int == RHS_int,u_sol,bcs=bc)
     return u_sol
 
+def solve_vp(Fn_space,LHS_int,RHS_int,bc=None):
+    '''
+    Generates a FENICS solution function on the function space,
+        then solves the PDE given in variational form by LHS_int, RHS_int, and boundary conditions bc.
+    :param Fn_space: the function space of the PDE, according to FENICS.
+    :param LHS_int: the variational integral form of the PDE's LHS evaluated on the function space
+    :param RHS_int: the variational integral form of the PDE's RHS evaluated on the function space
+        (see sample LHS and RHS functions in this file for the elliptic equation)
+    :param bc: Boundary conditions of the PDE on the given function space/mesh.
+    :return:
+    '''
+    u_sol = fc.Function(Fn_space)
+    fc.solve(LHS_int == RHS_int,u_sol,bcs=bc)
+    return u_sol
+
 ## BEGIN SAMPLE LHS and RHS functions.
-def elliptic_LHS(u_trial,v_test,**kwargs):
+def elliptic_LHS(u_trial,v_test, **kwargs):
     '''
     returns the LHS of the elliptic problem provided in the project handout:
     -\Delta u + u = f  => \int (grad(u) dot grad(v)  + u*x) dx = \int f*v dx
@@ -93,19 +144,7 @@ def elliptic_LHS(u_trial,v_test,**kwargs):
     '''
     return (fc.dot(fc.grad(u_trial), fc.grad(v_test)) + u_trial*v_test)*fc.dx
 
-def elliptic_LHS_const(u_trial,v_test,alpha,**kwargs):
-    '''
-    returns the LHS of the elliptic problem provided in the project handout:
-    -\Delta u + u = f  => \int (grad(u) dot grad(v)  + u*x) dx = \int f*v dx
-    :param u_trial: The trial function space defined on the FENICS Fn space.
-        (You obtain this by calling u_trial = fc.TrialFunction(V))
-    :param v_test: The test function space defined on the FENICS Fn space.
-        (You obtain this by calling u_trial = fc.TestFunction(V))
-    :return: an integral form of the equation, ready to be used in solve_pde.
-    '''
-    return alpha*(fc.dot(fc.grad(u_trial), fc.grad(v_test)) + u_trial*v_test)*fc.dx
-
-def elliptic_RHS(v_test,RHS_fn,**kwargs):
+def elliptic_RHS(v_test,RHS_fn, **kwargs):
     '''
     returns the RHSof the elliptic problem provided in the project handout:
     \Delta u + u = f  => \int (grad(u) dot grad(v)  + u*x) dx = \int f*v dx
@@ -117,6 +156,52 @@ def elliptic_RHS(v_test,RHS_fn,**kwargs):
     '''
     return RHS_fn*v_test*fc.dx
 
+def general_LHS(u_trial,v_test, dt=1, alpha=1):
+    '''
+    returns the LHS a(u_next, v) of the parabolic problem provided in the project handout:
+    D_t u  - \alpha \Delta u = f, u(0)=0, Neumann BC
+    as discretized by means of the implicit Euler's method =>
+    a(u_next, v) = \int u_trial * v dx + \int dt * alpha * dot(grad(u_trial), grad(v)) dx
+    L(v) = (u_previous + dt * f) * v * dx
+
+    If alpha=dt=1 returns the LHS of the elliptic problem provided in the project handout:
+    -\Delta u + u = f  => \int (grad(u) dot grad(v)  + u*x) dx = \int f*v dx
+
+    :param u_trial: The trial function space defined on the FENICS Fn space.
+        (You obtain this by calling u_trial = fc.TrialFunction(V))
+        Note: it is the solution of the current time step
+    :param v_test: The test function space defined on the FENICS Fn space.
+        (You obtain this by calling v_trial = fc.TestFunction(V))
+    :param dt: time discretization mesh size. The default is 1, so that a stationary PDE can also be approximated
+    :param alpha: a constant, default 1
+
+    :return: an integral form of the equation, ready to be used in solve_pde.
+    '''
+
+    return (dt*alpha*fc.dot(fc.grad(u_trial), fc.grad(v_test)) + u_trial*v_test)*fc.dx
+
+def general_RHS(v_test, RHS_fn, dt=1, u_previous=0 ):
+    '''
+    returns the RHS L(v) = (u_previous + dt * f) * v * dx of the parabolic problem provided in the project handout:
+    D_t u  - \alpha \Delta u = f, u(0)=0, Neumann BC
+    as discretized by means of the implicit Euler's method =>
+    a (u_next, v) = \int u_trial * v dx + \int dt * alpha * dot(grad(u_trial), grad(v)) dx
+    L (v) = (u_previous + dt * f) * v * dx
+
+    If dt=1, u_previous=0, returns the RHSof the elliptic problem provided in the project handout:
+    \Delta u + u = f  => \int (grad(u) dot grad(v)  + u*x) dx = \int f*v dx
+
+    :param u_previous: the FEM solution at the last time step (whereas u_triaL is at current time step). Default: 0
+        (You obtain this by calling u_trial = fc.TestFunction(V))
+    :param dt: time discretization mesh size. Default: 1
+    :param v_test: The test function space defined on the FENICS Fn space.
+        (You obtain this by calling v_trial = fc.TestFunction(V))
+    :param RHS_fn: a FENICS function evaluated on the function space.
+        (obtained by calling fc.
+    :return: an integral form of the equation, ready to be used in solve_pde.
+    '''
+
+    return (dt * RHS_fn + u_previous)*v_test*fc.dx
 
 # Compute error in L2 norm
 def error_L2(u_ref,u_sol):

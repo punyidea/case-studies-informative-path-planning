@@ -4,7 +4,7 @@ import PDEFEMCode.pde_utils as pde_utils
 import fenics as fc
 import numpy as np
 
-class TestPDESolver(TestCase):
+class TestPDEEllipticSolver(TestCase):
     mesh,fn_space = pde_utils.setup_function_space(100)
     LHS = staticmethod(pde_utils.elliptic_LHS)
     RHS = staticmethod(pde_utils.elliptic_RHS)
@@ -56,48 +56,161 @@ class TestPDESolver(TestCase):
         np.testing.assert_almost_equal(error_LInf,0, decimal=2)
         # 5e-4 error reported in test MATLAB code.
 
-### TO BE DELETED SOON, JUST FOR DEMONSTRATION PURPOSES
-class TestParabolicSolver(TestCase):
-    mesh,fn_space = pde_utils.setup_function_space(100)
-    LHS = staticmethod(pde_utils.elliptic_LHS_const)
-    RHS = staticmethod(pde_utils.elliptic_RHS)
+class TestPDEParabolicSolver(TestCase):
 
-    u_trial = fc.TrialFunction(fn_space)
-    v_test = fc.TestFunction(fn_space)
+    fc.set_log_active(False)    # disable messages of Fenics
 
-    LHS_arg = {'alpha':0.5}
+    LHS = staticmethod(pde_utils.general_LHS)
+    RHS = staticmethod(pde_utils.general_RHS)
+
+    # Bottom right and top left corner of rectangular domain
+    P0 = np.array([0, 0])
+    P1 = np.array([1, 1])
+
+    # Discretizations parameters
+    T = 1.0  # final time
+    D = 2  # how many times do we want to do solve our problem ?
+    initial_power = 7
+    final_power = 8
+    time_array = np.ceil(np.logspace(initial_power, final_power, D, base=2.0)).astype(
+        int)  # vector of total time steps, per time we do a time discretization
+    N_array = np.ceil(np.sqrt(time_array)).astype(int)  # vector of mesh sizes
+
+    err = 'uni'  # error to be outputted ('uni', 'L2', 'H1')
 
     def solve_obtain_error(self,RHS_fn,u_ref):
         '''
-        helper function for test cases below.
+        helper function for test cases below. It runs a series of tests with different discretizations, and it then
+        returns the corresponding errors. The error is only computed at the final time of every time discretization.
         '''
-        LHS_int, RHS_int = pde_utils.variational_formulation(
-            self.u_trial, self.v_test,
-            self.LHS,
-            self.RHS, RHS_fn,
-            LHS_args=self.LHS_arg
-        )
-        u_sol = pde_utils.solve_pde(self.fn_space, LHS_int, RHS_int)
 
-        error_L2 = pde_utils.error_L2(u_ref, u_sol)
-        error_LInf = pde_utils.error_LInf_piece_lin(u_ref, u_sol, self.mesh)
-        return error_L2,error_LInf
+        # Errors tensor
+        err_tot = np.zeros(self.D)
 
-    def test_PDE_solve_constant(self):
-        # Constant function is supplied.
-        # The solver is expected to return the same constant.
+        # For loop computing errors
+        for current_discr in range(self.D):
 
-        RHS_fn = fc.Constant(3.0)
-        u_ref = RHS_fn
+            # Space discretization
+            N = self.N_array[current_discr]
+            mesh, V = pde_utils.setup_rectangular_function_space(N, N, self.P0, self.P1)
 
-        error_L2, error_LInf = self.solve_obtain_error(RHS_fn, u_ref)
-        print('Constant function error_L2  =', error_L2)
-        print('Constant function error_Linf =', error_LInf)
-        np.testing.assert_almost_equal(error_L2,0,decimal=10)
-        np.testing.assert_almost_equal(error_LInf,0,decimal=10)
+            # Time discretization
+            curr_time_steps = self.time_array[current_discr]
+            dt, times = pde_utils.setup_time_discretization(self.T, curr_time_steps)
 
-##############################
+            # Variational problem
+            u_previous = fc.interpolate(fc.Constant(0), V)  # the solution at initial time is zero
+            u_trial = fc.TrialFunction(V)
+            v_test = fc.TestFunction(V)
+            LHS_int, RHS_int = pde_utils.variational_formulation(
+                u_trial, v_test,
+                self.LHS,
+                self.RHS, RHS_fn,
+                {'dt': dt},
+                {'dt': dt, 'u_previous': u_previous}
+            )
 
+            t = times[0]  # initial time
+
+            # Solving
+            for n in range(curr_time_steps):
+
+                # Time update
+                t = times[n+1]
+                u_ref.t = t
+                RHS_fn.t = t     # NB. This change is also reflected inside LHS_int, RHS_int
+
+                # Solution at this time (no BC!) (NB. It's not very explicit that time changed, but it did above)
+                u_current = pde_utils.solve_vp(V, LHS_int, RHS_int)
+
+                # Update previous solution
+                u_previous.assign(u_current)
+
+            # Saving the error only at the last timestep
+            if self.err == 'uni':
+                error = pde_utils.error_LInf_piece_lin(u_ref, u_current, mesh)
+            elif self.err == 'L2':
+                error = fc.errornorm(u_ref, u_current, 'L2')
+            else:
+                error = fc.errornorm(u_ref, u_current, 'H1')
+
+            print('Step = % .2f' % current_discr)
+
+            err_tot[current_discr] = error
+
+        return err_tot
+
+    def test_easy_polynomial(self):
+
+        '''
+        Expected behaviour: the exact solution (up to machine precision) is computed
+        '''
+
+        RHS_fn = fc.Expression('3*pow(x[0],2) - 2*pow(x[0],3) + (3 - 2*x[1])*pow(x[1],2) + 12*t*(-1 + x[0] + x[1])',
+                       degree=2, t=0)
+        u_ref = fc.Expression('t*(3*pow(x[0],2) - 2*pow(x[0],3) + (3 - 2*x[1])*pow(x[1],2))', degree=2, t=0)
+        err_tot = self.solve_obtain_error(RHS_fn, u_ref)
+        raise Exception('Error test not implemented')
+
+    def test_constant(self):
+
+        '''
+        Expected behaviour: the exact solution (up to machine precision) is computed
+        '''
+
+        RHS_fn = fc.Expression('1', degree=2)
+        u_ref = fc.Expression('t', degree=2, t=0)
+
+        err_tot = self.solve_obtain_error(RHS_fn, u_ref)
+        raise Exception('Error test not implemented')
+
+    def test_moving_bump(self):
+
+        '''
+        Expected behaviour: loglog(time_array, err_tot) and loglog(time_array, 1/time_array) should be parallel, in the
+        L2 norm
+        '''
+
+        fcase1 = '(exp(16 + 1/(-0.0625 + pow(-0.5 + x[0] - cos(t)/4.,2) + pow(-0.5 + x[1] - sin(t)/4.,2)))*sin((' \
+                 '3*t)/2.)*(96*cos((3*t)/2.) + ((128*((-1 + 2*x[1])*cos(t) + sin(t) - 2*x[0]*sin(t)))/pow(2 - 4*x[0] ' \
+                 '+ 4*pow(x[0],2) - 4*x[1] + 4*pow(x[1],2) + cos(t) - 2*x[0]*cos(t) + sin(t) - 2*x[1]*sin(t),' \
+                 '2) - (7*pow(2 - 4*x[0] + cos(t),2) + pow(2 - 4*x[0] + cos(t),4) + pow(2 - 4*x[0] + cos(t),' \
+                 '2)*pow(2 - 4*x[1] + sin(t),2) - 4*pow(2 - 4*x[0] + 4*pow(x[0],2) - 4*x[1] + 4*pow(x[1],2) + cos(t) ' \
+                 '- 2*x[0]*cos(t) + sin(t) - 2*x[1]*sin(t),2))/pow(-0.0625 + pow(-0.5 + x[0] - cos(t)/4.,' \
+                 '2) + pow(-0.5 + x[1] - sin(t)/4.,2),4) - (7*pow(2 - 4*x[1] + sin(t),2) + pow(2 - 4*x[0] + cos(t),' \
+                 '2)*pow(2 - 4*x[1] + sin(t),2) + pow(2 - 4*x[1] + sin(t),4) - 4*pow(2 - 4*x[0] + 4*pow(x[0],' \
+                 '2) - 4*x[1] + 4*pow(x[1],2) + cos(t) - 2*x[0]*cos(t) + sin(t) - 2*x[1]*sin(t),2))/pow(-0.0625 + ' \
+                 'pow(-0.5 + x[0] - cos(t)/4.,2) + pow(-0.5 + x[1] - sin(t)/4.,2),4))*sin((3*t)/2.)))/64. '
+        fcase2 = '0'
+        fcond1 = '2 + 4*pow(x[0],2) + 4*pow(x[1],2) + cos(t) + sin(t) < 2*(2*(x[0] + x[1]) + x[0]*cos(t) + x[1]*sin(t))'
+        fexpr = fcond1 + ' ? ' + fcase1 + ' : ' + fcase2
+        RHS_fn = fc.Expression(fexpr, degree=6, t=0)
+
+        ucase1 = '(exp(16 + 1/(-0.0625 + pow(-0.5 + x[0] - cos(t)/4.,2) + pow(-0.5 + x[1] - sin(t)/4.,2)))*pow(sin((' \
+                 '3*t)/2.),2))/2. '
+        ucase2 = '0'
+        ucond1 = '2 + 4*pow(x[0],2) + 4*pow(x[1],2) + cos(t) + sin(t) < 2*(2*(x[0] + x[1]) + x[0]*cos(t) + x[1]*sin(t))'
+        uexpr = ucond1 + ' ? ' + ucase1 + ' : ' + ucase2
+        u_ref = fc.Expression(uexpr, degree=6, t=0)
+
+        err_tot = self.solve_obtain_error(RHS_fn, u_ref)
+        raise Exception('Error test not implemented')
+
+    def test_polynomial(self):
+
+        '''
+        Expected behaviour: loglog(time_array, err_tot) and loglog(time_array, 1/time_array) should be parallel, in the
+        L2 norm
+        '''
+
+        RHS_fn = fc.Expression(
+            '3*(-1 + x[0] + x[1]) - 3*(-1 + x[0] + x[1])*cos(3*t) + (3*(3*pow(x[0],2) - 2*pow(x[0],3) + (3 - '
+            '2*x[1])*pow(x[1],2))*sin(3*t))/4', degree=2, t=0)
+        u_ref = fc.Expression('((-3*pow(x[0],2) + 2*pow(x[0],3) + pow(x[1],2)*(-3 + 2*x[1]))*(-1 + cos(3*t)))/4',
+                            degree=2, t=0)
+
+        err_tot = self.solve_obtain_error(RHS_fn, u_ref)
+        raise Exception('Error test not implemented')
 
 class TestPDEWrap(unittest.TestCase):
     n = 50
