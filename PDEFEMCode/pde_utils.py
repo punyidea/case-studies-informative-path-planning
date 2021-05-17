@@ -93,6 +93,18 @@ def elliptic_LHS(u_trial,v_test,**kwargs):
     '''
     return (fc.dot(fc.grad(u_trial), fc.grad(v_test)) + u_trial*v_test)*fc.dx
 
+def elliptic_LHS_const(u_trial,v_test,alpha,**kwargs):
+    '''
+    returns the LHS of the elliptic problem provided in the project handout:
+    -\Delta u + u = f  => \int (grad(u) dot grad(v)  + u*x) dx = \int f*v dx
+    :param u_trial: The trial function space defined on the FENICS Fn space.
+        (You obtain this by calling u_trial = fc.TrialFunction(V))
+    :param v_test: The test function space defined on the FENICS Fn space.
+        (You obtain this by calling u_trial = fc.TestFunction(V))
+    :return: an integral form of the equation, ready to be used in solve_pde.
+    '''
+    return alpha*(fc.dot(fc.grad(u_trial), fc.grad(v_test)) + u_trial*v_test)*fc.dx
+
 def elliptic_RHS(v_test,RHS_fn,**kwargs):
     '''
     returns the RHSof the elliptic problem provided in the project handout:
