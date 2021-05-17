@@ -11,13 +11,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 set_log_level(50)
 
-test_case = 4  # 1: bump, 2: polynomial, 3: easy, 4: polynomial easy
-err = 'L2'  # error to be outputted ('uni', 'L2', 'H1')
+test_case = 2  # 1: bump, 2: polynomial, 3: easy, 4: polynomial easy
+err = 'uni'  # error to be outputted ('uni', 'L2', 'H1')
 
 # Discretization parameters
 T = 1.0  # final time
-D = 10 # how many times do we want to do solve our problem ?
-time_array = np.ceil(np.logspace(4, 13, D, base=2.0)).astype(int)  # vector of total time steps, per time we do a time
+D = 2 # how many times do we want to do solve our problem ?
+time_array = np.ceil(np.logspace(7, 8, D, base=2.0)).astype(int)  # vector of total time steps, per time we do a time
 # discretization
 N_array = np.ceil(np.sqrt(time_array)).astype(int)  # vector of mesh sizes
 
@@ -41,7 +41,6 @@ elif test_case == 1:
     ucond1 = '2 + 4*pow(x[0],2) + 4*pow(x[1],2) + cos(t) + sin(t) < 2*(2*(x[0] + x[1]) + x[0]*cos(t) + x[1]*sin(t))'
     uexpr = ucond1 + ' ? ' + ucase1 + ' : ' + ucase2
     u_e = Expression(uexpr, degree=6, t=0)
-
 elif test_case == 4:
     f = Expression('3*pow(x[0],2) - 2*pow(x[0],3) + (3 - 2*x[1])*pow(x[1],2) + 12*t*(-1 + x[0] + x[1])', degree=2, t=0)
     u_e = Expression('t*(3*pow(x[0],2) - 2*pow(x[0],3) + (3 - 2*x[1])*pow(x[1],2))', degree=2, t=0)
@@ -98,6 +97,8 @@ for disc in range(D):
         print('Step = % .2f' % disc)
 
     err_tot[disc] = error
+
+print(err_tot)
 
 # loglog(time_array, err_tot) and loglog(time_array, 1/time_array) should be parallel, in the L2 norm
 np.savetxt('error_'+err, err_tot)
