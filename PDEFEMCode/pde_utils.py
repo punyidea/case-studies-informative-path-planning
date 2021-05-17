@@ -116,6 +116,15 @@ def error_L2(u_ref,u_sol):
     '''
     return fc.errornorm(u_ref, u_sol, 'L2')
 
+def error_H1(u_ref,u_sol):
+    '''
+    Returns the H1 error between two FENICS objects.
+    :param u_ref: the reference solution on the function space.
+    :param u_sol:
+    :return:
+    '''
+    return fc.errornorm(u_ref,u_sol,'H1')
+
 def error_LInf_piece_lin(u_ref,u_sol,mesh):
     '''
     Computes the L infinity norm between reference and solution functions,
