@@ -81,7 +81,7 @@ def solve_pde(Fn_space,LHS_int,RHS_int,bc=None):
     return u_sol
 
 ## BEGIN SAMPLE LHS and RHS functions.
-def elliptic_LHS(u_trial,v_test,extra_arg = None,**kwargs):
+def elliptic_LHS(u_trial,v_test,**kwargs):
     '''
     returns the LHS of the elliptic problem provided in the project handout:
     -\Delta u + u = f  => \int (grad(u) dot grad(v)  + u*x) dx = \int f*v dx
@@ -93,7 +93,7 @@ def elliptic_LHS(u_trial,v_test,extra_arg = None,**kwargs):
     '''
     return (fc.dot(fc.grad(u_trial), fc.grad(v_test)) + u_trial*v_test)*fc.dx
 
-def elliptic_RHS(v_test,RHS_fn,extra_arg = None,**kwargs):
+def elliptic_RHS(v_test,RHS_fn,**kwargs):
     '''
     returns the RHSof the elliptic problem provided in the project handout:
     \Delta u + u = f  => \int (grad(u) dot grad(v)  + u*x) dx = \int f*v dx
