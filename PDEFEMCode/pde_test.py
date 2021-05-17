@@ -56,3 +56,16 @@ class TestPDESolver(TestCase):
         np.testing.assert_almost_equal(error_LInf,0, decimal=2)
         # 5e-4 error reported in test MATLAB code.
 
+class TestPDEWrap(unittest.TestCase):
+    n = 50
+    mesh, fn_space = pde_utils.setup_function_space(50)
+
+    def test_fenics_function(self):
+
+        affine_fc = fc.Expression('1 + 3*x[0] + 4*x[1]',
+            element=self.fn_space.ufl_element())
+        affine_np = pde_utils.fenics_unit_square_function_wrap(self.mesh,self.n,affine_fc)
+        X,Y = np.meshgrid(np.linspace(0,1,40),np.linspace(0,1,40),indexing='ij')
+        eval_ref = 1 + 3*X + 4*Y
+        eval_wrap = affine_np(np.stack((X,Y),axis=-1))
+        np.testing.assert_almost_equal(eval_ref,eval_wrap)

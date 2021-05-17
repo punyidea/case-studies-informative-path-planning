@@ -6,6 +6,7 @@ Documentation assumes that fenics 2019.1.0 is used, and imported by
 import fenics as fc
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.interpolate import RegularGridInterpolator
 
 def setup_function_space(n):
     """
@@ -130,14 +131,20 @@ def error_LInf_piece_lin(u_ref,u_sol,mesh):
     return np.max(np.abs(vertex_values_u_D - vertex_values_u))
 
 
-def fenics_function_wrap(u_fenics):
+def fenics_unit_square_function_wrap(mesh,n,u_fenics):
     '''
     Wraps a fenics function object so that it may be called by a function which supplies numpy arrays.
+    The wrapper performs bilinear interpolation between the given points.
+    :param mesh: the fenics mesh object that we used.
+    :param n: the number given to define the mesh size.
+    :param u_fenics: the function to wrap in an interpolator
     :return: a function, which when evaluated,
         gives the function evaluated at coordinates.
-    TODO: document function shape.
     '''
-    pass
+    coords = mesh.coordinates().reshape((n+1,n+1,-1),order='F')
+    interpolator_coords = coords[:,0,0],coords[0,:,1]
+    fn_vals = u_fenics.compute_vertex_values(mesh).reshape((n+1,n+1),order='F')
+    return RegularGridInterpolator(interpolator_coords,fn_vals,method='linear')
 
 
 def fenics_grad_wrap(u_fenics):
