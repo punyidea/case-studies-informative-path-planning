@@ -68,7 +68,7 @@ class TestPDEEllipticSolver(TestCase):
         wrap = pde_utils.fenics_rectangle_function_wrap(nx, ny, P0, P1, u_fenics)
         my_interp = wrap.get_interpolator
 
-        P = np.array([6.41, 7.71])
+        P = np.array([6.41, 7.71] )
 
         np.testing.assert_almost_equal(my_interp(P) - u_fenics(P), 0, decimal=10)
 
