@@ -5,12 +5,28 @@ import fenics as fc
 import numpy as np
 
 class TestPDESolver(TestCase):
-    mesh,fn_space = pde_utils.setup_function_space(100)
-    LHS = staticmethod(pde_utils.elliptic_LHS)
-    RHS = staticmethod(pde_utils.elliptic_RHS)
+    @classmethod
+    def setUpClass(self):
+        n=100
+        self.setup_function_mesh_cls(n)
 
-    u_trial = fc.TrialFunction(fn_space)
-    v_test = fc.TestFunction(fn_space)
+    @classmethod
+    def setup_function_mesh_cls(cls,n):
+        cls.mesh,cls.fn_space = pde_utils.setup_function_space(n)
+        cls.LHS = staticmethod(pde_utils.elliptic_LHS)
+        cls.RHS = staticmethod(pde_utils.elliptic_RHS)
+
+        cls.u_trial = fc.TrialFunction(cls.fn_space)
+        cls.v_test = fc.TestFunction(cls.fn_space)
+
+
+    def setup_function_mesh(self, n):
+        self.mesh, self.fn_space = pde_utils.setup_function_space(n)
+        self.LHS = pde_utils.elliptic_LHS
+        self.RHS = pde_utils.elliptic_RHS
+
+        self.u_trial = fc.TrialFunction(self.fn_space)
+        self.v_test = fc.TestFunction(self.fn_space)
 
     def solve_obtain_error(self,RHS_fn,u_ref):
         '''
@@ -57,6 +73,23 @@ class TestPDESolver(TestCase):
         np.testing.assert_almost_equal(error_LInf,0, decimal=2)
         # 5e-4 error reported in test MATLAB code.
 
+    def testConvergenceOrder(self):
+        RHS_fn = fc.Expression('(2*pi*pi + 1)*sin(pi*x[0] + pi/2)*sin(pi*x[1]+pi/2)',
+            element = self.fn_space.ufl_element())
+        u_ref = fc.Expression('sin(pi*x[0] + pi/2)*sin(pi*x[1]+pi/2)',
+                element = self.fn_space.ufl_element())
+        n_list = np.asarray(np.ceil(np.logspace(3,9,10, base=2)),
+                                dtype= np.int32)
+        error_L2_list,error_LInf = np.empty((2,10))
+        for ind,n_grid in enumerate(n_list):
+            self.setup_function_mesh(n_grid)
+            self.solve_obtain_error(RHS_fn,u_ref)
+            error_L2_list[ind], error_LInf[ind] = self.solve_obtain_error(RHS_fn,u_ref)
+
+        OOC = -(np.log(error_L2_list[1:])-np.log(error_L2_list[:-1])) / \
+                (np.log(n_list[1:])-np.log(n_list[:-1]))
+        #check that we are within 0.03 of the desired order of convergence
+        np.testing.assert_allclose(OOC,2,atol=.03)
 
 
 class TestPDEWrap(unittest.TestCase):

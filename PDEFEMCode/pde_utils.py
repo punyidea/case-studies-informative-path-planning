@@ -12,6 +12,8 @@ def setup_function_space(n):
     """
     Sets up the function space on the unit square, with n subdivisions.
     This includes preparing the mesh and basis functions on the mesh.
+    See https://fenicsproject.org/olddocs/dolfin/2019.1.0/python/demos/built-in-meshes/demo_built-in-meshes.py.html
+    for documentation on rectangular meshes.
 
     :return:
         - mesh, a fenics mesh on the unit square. 
@@ -49,7 +51,7 @@ def variational_formulation(u_trial,v_test,LHS, RHS,RHS_fn, LHS_args = None, RHS
         the functional form of the test functions, and some function RHS_fn.
         For an example, see elliptic_RHS().
         Extra arguments are supplied through RHS_args
-        TODO (if need be): change RHS definition to include u_form if need be?
+        TODO (if need be): change RHS definition to include u_trial if need be?
     :param RHS_fn: a function defined on the FENICS function space, could be
             fc.Expression()
             fc.Constant()
