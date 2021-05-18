@@ -170,14 +170,18 @@ def fenics_unit_square_function_wrap(mesh,n,u_fenics):
     return RegularGridInterpolator(interpolator_coords,fn_vals,method='linear')
 
 
-def fenics_grad_wrap(u_fenics):
+def fenics_grad_wrap(mesh,n,u_fenics):
     '''
     Wraps a fenics function object so that it may be called by a function which supplies numpy arrays.
     :return: a function, which when evaluated,
         gives the gradient of the function evaluated at coordinates.
     TODO: document function shape.
     '''
-    pass
+    gradspace = fc.VectorFunctionSpace(mesh,'DG',0)
+    grad_fc = fc.project(fc.grad(u_fenics),gradspace)
+    grad_eval = np.empty(2)
+    grad_fc.eval(grad_eval,[0.234235,0.23456])
+    return grad_eval
 # # Print errors
 # print('error_L2  =', error_L2)
 # print('error_max =', error_max)

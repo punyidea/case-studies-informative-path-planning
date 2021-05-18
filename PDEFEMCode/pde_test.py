@@ -78,6 +78,7 @@ class TestPDESolver(TestCase):
             element = self.fn_space.ufl_element())
         u_ref = fc.Expression('sin(pi*x[0] + pi/2)*sin(pi*x[1]+pi/2)',
                 element = self.fn_space.ufl_element())
+
         n_list = np.asarray(np.ceil(np.logspace(3,9,10, base=2)),
                                 dtype= np.int32)
         error_L2_list,error_LInf = np.empty((2,10))
@@ -105,3 +106,14 @@ class TestPDEWrap(unittest.TestCase):
         eval_ref = 1 + 3*X + 4*Y
         eval_wrap = affine_np(np.stack((X,Y),axis=-1))
         np.testing.assert_almost_equal(eval_ref,eval_wrap)
+
+    def test_fenics_grad(self):
+
+        affine_fc = fc.Expression('1 + 3*x[0] + 4*x[1]',
+           degree=1)
+        affine_fc_fenics = fc.interpolate(affine_fc,self.fn_space)
+        grad_eval = pde_utils.fenics_grad_wrap(self.mesh,self.n,affine_fc_fenics)
+        X,Y = np.meshgrid(np.linspace(0,1,40),np.linspace(0,1,40),indexing='ij')
+        eval_ref = 1 + 3*X + 4*Y
+        #eval_wrap = affine_np(np.stack((X,Y),axis=-1))
+        np.testing.assert_almost_equal([3,4],grad_eval)
