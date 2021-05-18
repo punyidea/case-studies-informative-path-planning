@@ -56,6 +56,23 @@ class TestPDEEllipticSolver(TestCase):
         np.testing.assert_almost_equal(error_LInf,0, decimal=2)
         # 5e-4 error reported in test MATLAB code.
 
+    def test_function_wrap(self):
+        nx = 5
+        ny = 6
+        P0 = np.array([4, 1])
+        P1 = np.array([10, 23])
+        mesh, fn_space = pde_utils.setup_rectangular_function_space(nx, ny, P0, P1)
+
+        u_fenics = fc.interpolate(fc.Expression('x[0]+pow(x[1],2)', degree=1), fn_space)
+
+        wrap = pde_utils.fenics_rectangle_function_wrap(nx, ny, P0, P1, u_fenics)
+        my_interp = wrap.get_interpolator
+
+        P = np.array([6.41, 7.71])
+
+        np.testing.assert_almost_equal(my_interp(P) - u_fenics(P), 0, decimal=10)
+
+
 class TestPDEParabolicSolver(TestCase):
 
     fc.set_log_active(False)    # disable messages of Fenics
