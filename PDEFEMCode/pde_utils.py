@@ -15,7 +15,7 @@ def setup_function_space(n):
     This includes preparing the mesh and basis functions on the mesh.
 
     :return:
-        - mesh, a fenics mesh on the unit square. 
+        - mesh, a fenics mesh on the unit square.
             The mesh is a unit square mesh with n sub-squares.
             Triangular subdivisions are obtained by going diagonally up and right,
             see UnitSquareMesh function documentation.
@@ -24,7 +24,7 @@ def setup_function_space(n):
     # Create mesh and define function space
     mesh = fc.UnitSquareMesh(n, n)
     fn_space = fc.FunctionSpace(mesh, 'P', 1)
-    return mesh,fn_space
+    return mesh, fn_space
 
 def setup_rectangular_function_space(nx, ny, P0, P1):
     """
@@ -66,11 +66,11 @@ def setup_time_discretization(T, Nt):
         - times: a vector of Nt+1 evenly spaced time instants 0, dt, 2*dt, ... T
     """
     # Create mesh and define function space
-    dt = 1/Nt
-    times = np.linspace(0, T, Nt+1)
+    dt = 1 / Nt
+    times = np.linspace(0, T, Nt + 1)
     return dt, times
 
-def variational_formulation(u_trial,v_test,LHS, RHS,RHS_fn, LHS_args = None, RHS_args=None):
+def variational_formulation(u_trial, v_test, LHS, RHS, RHS_fn, LHS_args=None, RHS_args=None):
     '''
 
     :param u_trial: The trial function evaluated on the FENICS function space.
@@ -96,12 +96,12 @@ def variational_formulation(u_trial,v_test,LHS, RHS,RHS_fn, LHS_args = None, RHS
     LHS_args = LHS_args if LHS_args is not None else {}
     RHS_args = RHS_args if RHS_args is not None else {}
 
-    #set up integrals using these forms.
+    # set up integrals using these forms.
     LHS_int = LHS(u_trial, v_test, **LHS_args)
     RHS_int = RHS(v_test, RHS_fn, **RHS_args)
     return LHS_int, RHS_int
 
-def solve_pde(Fn_space,LHS_int,RHS_int,bc=None):
+def solve_pde(Fn_space, LHS_int, RHS_int, bc=None):
     '''
     Generates a FENICS solution function on the function space,
         then solves the PDE given in variational form by LHS_int, RHS_int, and boundary conditions bc.
@@ -113,10 +113,10 @@ def solve_pde(Fn_space,LHS_int,RHS_int,bc=None):
     :return:
     '''
     u_sol = fc.Function(Fn_space)
-    fc.solve(LHS_int == RHS_int,u_sol,bcs=bc)
+    fc.solve(LHS_int == RHS_int, u_sol, bcs=bc)
     return u_sol
 
-def solve_vp(Fn_space,LHS_int,RHS_int,bc=None):
+def solve_vp(Fn_space, LHS_int, RHS_int, bc=None):
     '''
     Generates a FENICS solution function on the function space,
         then solves the PDE given in variational form by LHS_int, RHS_int, and boundary conditions bc.
@@ -128,11 +128,11 @@ def solve_vp(Fn_space,LHS_int,RHS_int,bc=None):
     :return:
     '''
     u_sol = fc.Function(Fn_space)
-    fc.solve(LHS_int == RHS_int,u_sol,bcs=bc)
+    fc.solve(LHS_int == RHS_int, u_sol, bcs=bc)
     return u_sol
 
 ## BEGIN SAMPLE LHS and RHS functions.
-def elliptic_LHS(u_trial,v_test, **kwargs):
+def elliptic_LHS(u_trial, v_test, **kwargs):
     '''
     returns the LHS of the elliptic problem provided in the project handout:
     -\Delta u + u = f  => \int (grad(u) dot grad(v)  + u*x) dx = \int f*v dx
@@ -142,9 +142,9 @@ def elliptic_LHS(u_trial,v_test, **kwargs):
         (You obtain this by calling u_trial = fc.TestFunction(V))
     :return: an integral form of the equation, ready to be used in solve_pde.
     '''
-    return (fc.dot(fc.grad(u_trial), fc.grad(v_test)) + u_trial*v_test)*fc.dx
+    return (fc.dot(fc.grad(u_trial), fc.grad(v_test)) + u_trial * v_test) * fc.dx
 
-def elliptic_RHS(v_test,RHS_fn, **kwargs):
+def elliptic_RHS(v_test, RHS_fn, **kwargs):
     '''
     returns the RHSof the elliptic problem provided in the project handout:
     \Delta u + u = f  => \int (grad(u) dot grad(v)  + u*x) dx = \int f*v dx
@@ -154,9 +154,9 @@ def elliptic_RHS(v_test,RHS_fn, **kwargs):
         (obtained by calling fc.
     :return: an integral form of the equation, ready to be used in solve_pde.
     '''
-    return RHS_fn*v_test*fc.dx
+    return RHS_fn * v_test * fc.dx
 
-def general_LHS(u_trial,v_test, dt=1, alpha=1):
+def general_LHS(u_trial, v_test, dt=1, alpha=1):
     '''
     returns the LHS a(u_next, v) of the parabolic problem provided in the project handout:
     D_t u  - \alpha \Delta u = f, u(0)=0, Neumann BC
@@ -178,9 +178,9 @@ def general_LHS(u_trial,v_test, dt=1, alpha=1):
     :return: an integral form of the equation, ready to be used in solve_pde.
     '''
 
-    return (dt*alpha*fc.dot(fc.grad(u_trial), fc.grad(v_test)) + u_trial*v_test)*fc.dx
+    return (dt * alpha * fc.dot(fc.grad(u_trial), fc.grad(v_test)) + u_trial * v_test) * fc.dx
 
-def general_RHS(v_test, RHS_fn, dt=1, u_previous=0 ):
+def general_RHS(v_test, RHS_fn, dt=1, u_previous=0):
     '''
     returns the RHS L(v) = (u_previous + dt * f) * v * dx of the parabolic problem provided in the project handout:
     D_t u  - \alpha \Delta u = f, u(0)=0, Neumann BC
@@ -201,10 +201,10 @@ def general_RHS(v_test, RHS_fn, dt=1, u_previous=0 ):
     :return: an integral form of the equation, ready to be used in solve_pde.
     '''
 
-    return (dt * RHS_fn + u_previous)*v_test*fc.dx
+    return (dt * RHS_fn + u_previous) * v_test * fc.dx
 
 # Compute error in L2 norm
-def error_L2(u_ref,u_sol):
+def error_L2(u_ref, u_sol):
     '''
     Returns the error between two FENICS objects.
     :param u_ref: the reference solution on the function space.
@@ -213,16 +213,16 @@ def error_L2(u_ref,u_sol):
     '''
     return fc.errornorm(u_ref, u_sol, 'L2')
 
-def error_H1(u_ref,u_sol):
+def error_H1(u_ref, u_sol):
     '''
     Returns the H1 error between two FENICS objects.
     :param u_ref: the reference solution on the function space.
     :param u_sol:
     :return:
     '''
-    return fc.errornorm(u_ref,u_sol,'H1')
+    return fc.errornorm(u_ref, u_sol, 'H1')
 
-def error_LInf_piece_lin(u_ref,u_sol,mesh):
+def error_LInf_piece_lin(u_ref, u_sol, mesh):
     '''
     Computes the L infinity norm between reference and solution functions,
     in the case that the function is linear. (bc we can simply evaluate function at mesh points.)
@@ -237,7 +237,7 @@ def error_LInf_piece_lin(u_ref,u_sol,mesh):
     return np.max(np.abs(vertex_values_u_D - vertex_values_u))
 
 
-def fenics_unit_square_function_wrap(mesh,n,u_fenics):
+def fenics_unit_square_function_wrap(mesh, n, u_fenics):
     '''
     Wraps a fenics function object so that it may be called by a function which supplies numpy arrays.
     The wrapper performs bilinear interpolation between the given points.
@@ -247,20 +247,156 @@ def fenics_unit_square_function_wrap(mesh,n,u_fenics):
     :return: a function, which when evaluated,
         gives the function evaluated at coordinates.
     '''
-    coords = mesh.coordinates().reshape((n+1,n+1,-1),order='F')
-    interpolator_coords = coords[:,0,0],coords[0,:,1]
-    fn_vals = u_fenics.compute_vertex_values(mesh).reshape((n+1,n+1),order='F')
-    return RegularGridInterpolator(interpolator_coords,fn_vals,method='linear')
+    coords = mesh.coordinates().reshape((n + 1, n + 1, -1), order='F')
+    interpolator_coords = coords[:, 0, 0], coords[0, :, 1]
+    fn_vals = u_fenics.compute_vertex_values(mesh).reshape((n + 1, n + 1), order='F')
+    return RegularGridInterpolator(interpolator_coords, fn_vals, method='linear')
 
 
-def fenics_grad_wrap(u_fenics):
+class fenics_rectangle_function_wrap():
     '''
     Wraps a fenics function object so that it may be called by a function which supplies numpy arrays.
+    It is memory inefficient but runtime efficient: by means of linear interpolation, the query value is computed in
+    8 operations
+    :param mesh: the fenics mesh object that we used.
+    :param nx, ny: number of side rectangular cells in x and y directions
+    :param
+    :param u_fenics: the function to wrap in an interpolator
     :return: a function, which when evaluated,
-        gives the gradient of the function evaluated at coordinates.
-    TODO: document function shape.
+        gives the function evaluated at coordinates.
     '''
-    pass
+
+    def __init__(self, nx, ny, P0, P1, u_fenics):
+        self.mesh = u_fenics.function_space().mesh()
+        self.nx = nx
+        self.ny = ny
+        self.x0 = P0[0]
+        self.y0 = P0[1]
+        self.x1 = P1[0]
+        self.y1 = P1[1]
+        self.hx = (P1[0] - P0[0]) / nx
+        self.hy = (P1[1] - P0[1]) / ny
+        self.u = u_fenics
+
+        self.pre_computations()
+
+    def pre_computations(self):
+
+        # Nodes of the mesh and nodal values of u. For i=0,...,nx and j=0,...,ny, we have the l-th entry l=i+j(nx+1)
+        coords = self.mesh.coordinates()  # a 1+nx+ny(nx+1) x 2 matrix
+        nodal_vals = self.u.compute_vertex_values()
+
+        # Some grids
+        nx=self.nx
+        ny=self.ny
+        self.x = np.linspace(self.x0, self.x1, nx + 1)
+        self.y = np.linspace(self.y0, self.y1, ny + 1)
+
+        # For triangles dw (dw = facing down)
+        #    3
+        #  2 1
+        n_1_dw = 0  # Counter for 1 nodes of dw triangles
+        n_2_dw = 0
+        n_3_dw = 0
+        u_1_dw = np.zeros(1 + nx - 1 + (ny - 1) * (nx - 1 + 1))  # Nodal 1 vadwes of u for dw triangles
+        u_2_dw = np.zeros(1 + nx - 1 + (ny - 1) * (nx - 1 + 1))
+        u_3_dw = np.zeros(1 + nx - 1 + (ny - 1) * (nx - 1 + 1))
+        xv_dw = np.zeros(1 + nx - 1 + (ny - 1) * (nx - 1 + 1))  # Vertex coordinates for dw triangles
+        yv_dw = np.zeros(1 + nx - 1 + (ny - 1) * (nx - 1 + 1))
+
+        # For triangles up (up = facing up)
+        #  1 2
+        #  3
+
+        n_1_up = 0  # Counter for 1 nodes of up triangles
+        n_2_up = 0
+        n_3_up = 0
+        u_1_up = np.zeros(1 + nx - 1 + (ny - 1) * (nx - 1 + 1))  # Nodal 1 values of u for up triangles
+        u_2_up = np.zeros(1 + nx - 1 + (ny - 1) * (nx - 1 + 1))
+        u_3_up = np.zeros(1 + nx - 1 + (ny - 1) * (nx - 1 + 1))
+        xv_up = np.zeros(1 + nx - 1 + (ny - 1) * (nx - 1 + 1))  # Vertex coordinates for up triangles
+        yv_up = np.zeros(1 + nx - 1 + (ny - 1) * (nx - 1 + 1))
+        self.U = np.zeros((nx + 1, ny + 1))  # array of U values
+
+        for j in range(ny + 1):  # Pythonics for j=0...ny
+            for i in range(nx + 1):  # Pythonics for i=0...nx
+
+                # print([self.x0+i*self.hx, self.y0+j*self.hy], coords[i + j * (nx + 1)], nodal_vals[i + j * (nx + 1)], self.u(coords[i + j * (nx + 1)]))
+
+                u_ij = nodal_vals[i + j * (nx + 1)]
+                self.U[i, j] = u_ij
+
+                if i > 0 and j < ny:  # Python wants and !!
+                    u_1_dw[n_1_dw] = u_ij
+                    n_1_dw += 1
+                if i < nx and j < ny:
+                    u_2_dw[n_2_dw] = u_ij
+                    xv_dw[n_2_dw] = self.x0 + i * self.hx
+                    yv_dw[n_2_dw] = self.y0 + j * self.hy
+                    n_2_dw += 1
+                    u_3_up[n_3_up] = u_ij
+                    xv_up[n_3_up] = self.x0 + i * self.hx
+                    yv_up[n_3_up] = self.y0 + j * self.hy
+                    n_3_up += 1
+                if i > 0 and j > 0:
+                    u_3_dw[n_3_dw] = u_ij
+                    n_3_dw += 1
+                    u_2_up[n_2_up] = u_ij
+                    n_2_up += 1
+                if i < nx and j > 0:
+                    u_1_up[n_1_up] = u_ij
+                    n_1_up += 1
+
+        # For dw triangles like
+        #    3
+        #  2 1
+
+        T_dw = self.hx * self.hy * u_2_dw - self.hy * u_1_dw * xv_dw + self.hy * u_2_dw * xv_dw + self.hx * u_1_dw * yv_dw - self.hx * u_3_dw * yv_dw
+        Tx_dw = self.hy * u_1_dw - self.hy * u_2_dw
+        Ty_dw = - self.hx * u_1_dw + self.hx * u_3_dw
+
+        # For triangles up (up = facing up)
+        #  1 2
+        #  3
+
+        T_up = self.hx * self.hy * u_3_up + self.hy * u_1_up * xv_up - self.hy * u_2_up * xv_up - self.hx * u_1_up * yv_up + self.hx * u_3_up * yv_up
+        Tx_up = - self.hy * u_1_up + self.hy * u_2_up
+        Ty_up = self.hx * u_1_up - self.hx * u_3_up
+
+        # All together
+        self.T = np.array([T_dw, T_up]).T
+        self.Tx = np.array([Tx_dw, Tx_up]).T
+        self.Ty = np.array([Ty_dw, Ty_up]).T
+
+        self.D = self.hx * self.hy
+
+        self.slope = self.hy / self.hx
+
+    def get_interpolator(self, M):
+        '''
+        It takes in a matrix of N points (Nx2)
+        For every point it computes the triangle type and triangle index
+        It returns an Nx2 matrix, the first column describes the index, the second is 0 for dw triangle, 1 for up triangles
+        '''
+
+        if len(np.shape(M)) == 1:
+            M = np.array([M])
+
+        index_raw, type_raw = np.divmod(M - [self.x0, self.y0], [self.hx, self.hy])
+        index_def = np.squeeze((index_raw[:, 0] + index_raw[:, 1] * self.nx)).astype(int)
+        type_def = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
+
+        # Interpolation
+        Px = self.Tx[index_def, type_def] * M[:, 0]
+        Py = self.Ty[index_def, type_def] * M[:, 1]
+        N = self.T[index_def, type_def] + Px + Py
+
+        return N / self.D
+
+    def get_scipy_interpolator(self):
+        return RegularGridInterpolator((self.x, self.y), self.U)
+
+
 # # Print errors
 # print('error_L2  =', error_L2)
 # print('error_max =', error_max)
