@@ -235,7 +235,7 @@ def fenics_unit_square_function_wrap(mesh, n, u_fenics):
     return RegularGridInterpolator(interpolator_coords, fn_vals, method='linear')
 
 
-class fenics_rectangle_function_wrap():
+class FenicsRectangleLinearInterpolator():
     '''
     Wraps a fenics function object so that it may be called by a function which supplies numpy arrays.
     It is memory inefficient but runtime efficient: by means of linear interpolation, the query value is computed in
@@ -246,7 +246,6 @@ class fenics_rectangle_function_wrap():
     :param u_fenics: the function to wrap in an interpolator
     :return: a function, which when evaluated,
         gives the function evaluated at coordinates.
-    :return: Fenics function which computes the gradient of the provided function (a discontinuous mesh)
     '''
 
     def __init__(self, nx, ny, P0, P1, u_fenics):
@@ -378,6 +377,64 @@ class fenics_rectangle_function_wrap():
 
     def get_scipy_interpolator(self):
         return RegularGridInterpolator((self.x, self.y), self.U)
+
+class FenicsRectangleGradInterpolator(FenicsRectangleLinearInterpolator):
+    '''
+    Wraps a fenics function object so that it may be called by a function which supplies numpy arrays.
+    Return
+    It is memory inefficient but runtime efficient: by means of linear interpolation, the query value is computed in
+    8 operations
+    :param mesh: the fenics mesh object that we used.
+    :param nx, ny: number of side rectangular cells in x and y directions
+    :param
+    :param u_fenics: the function to wrap in an interpolator
+    :return: a function, which when evaluated,
+        gives the function evaluated at coordinates.
+    :return: Fenics function which computes the gradient of the provided function (a discontinuous mesh)
+    '''
+    def pre_computations(self):
+        nx,ny = self.nx,self.ny
+        self.x = np.linspace(self.x0, self.x1, nx + 1)
+        self.y = np.linspace(self.y0, self.y1, ny + 1)
+        grad_u = fenics_grad(self.mesh,self.u)
+
+        #compute min coords of each cell
+        low_cell_X,low_cell_Y = np.meshgrid(self.x[:-1],self.y[:-1],indexing='ij')
+        low_cell_coords = np.stack((low_cell_X,low_cell_Y),axis=-1)
+
+        # upper triangle: ("top left" of each cell)
+        # Lower triangle: ("bottom right" of each cell)
+        # example of UL:
+        #  1 2
+        #  3
+        BR_coords = low_cell_coords + [.5*self.hx,.25*self.hy]
+        UL_coords = low_cell_coords + [.25*self.hx,.5*self.hy]
+        T_coords = np.stack((BR_coords,UL_coords), axis=-2)
+
+        self.T_grads = native_fenics_eval_vec(grad_u,T_coords)
+
+    def __call__(self,coords):
+        '''
+        When called.
+        :param coords: coordinates on which we'd like to shape (don't care) by 2
+        :return:
+        '''
+        coords_shape =coords.shape
+        coords_rs = np.reshape(coords,(-1,coords_shape[-1]))
+
+        index_float = (coords_rs - [self.x0, self.y0])/[self.hx,self.hy]
+        assert((index_float<=[self.nx+1,self.ny+1]).all())# are we in bounds?
+        assert((index_float>=0).all()) #are we in bounds?
+
+        index_int, frac_index = np.divmod(index_float, 1)
+        index_int = index_int.astype(int)
+
+        # if type_def is 0, it is a BR_triangle
+        type_def = np.squeeze(frac_index[:, 0] < frac_index[:, 1]).astype(int)  # If 0, dw triangle
+
+        out_arr = self.T_grads[index_int[:,0],index_int[:,1],type_def,:]
+        out_shape = coords_shape[:-1] + (2,)
+        return out_arr.reshape(out_shape)
 
 ## Convenient Fenics evaluation wrappers
 def native_fenics_eval_scalar(u_fenics, coords):

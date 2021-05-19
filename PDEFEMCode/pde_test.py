@@ -104,20 +104,6 @@ class TestEllipticSolver(TestCase):
         #check that we are within 0.03 of the desired order of convergence
         np.testing.assert_allclose(OOC,2,atol=.03)
 
-    def test_function_wrap(self):
-        nx = 5
-        ny = 6
-        P0 = np.array([4, 1])
-        P1 = np.array([10, 23])
-        mesh, fn_space = pde_utils.setup_rectangular_function_space(nx, ny, P0, P1)
-
-        u_fenics = fc.interpolate(fc.Expression('x[0]+pow(x[1],2)', degree=1), fn_space)
-        wrap = pde_utils.fenics_rectangle_function_wrap(nx, ny, P0, P1, u_fenics)
-        my_interp = wrap.get_interpolator
-
-        P = np.array([6.41, 7.71] )
-
-        np.testing.assert_almost_equal(my_interp(P) - u_fenics(P), 0, decimal=10)
 
 
 class TestPDEParabolicSolver(TestCase):
@@ -293,8 +279,38 @@ class TestInterpolators(unittest.TestCase):
         eval_wrap = affine_np(np.stack((X,Y),axis=-1))
         np.testing.assert_almost_equal(eval_ref,eval_wrap)
 
+    def test_fenics_lin_interpolator_rectangle_right(self):
+        nx = 5
+        ny = 6
+        P0 = np.array([4, 1])
+        P1 = np.array([10, 23])
+        mesh, fn_space = pde_utils.setup_rectangular_function_space(nx, ny, P0, P1)
 
+        u_fenics = fc.interpolate(fc.Expression('x[0]+pow(x[1],2)', degree=1), fn_space)
+        wrap = pde_utils.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, u_fenics)
+        my_interp = wrap.get_interpolator
 
+        P = np.array([6.41, 7.71])
+
+        np.testing.assert_almost_equal(my_interp(P) - u_fenics(P), 0, decimal=10)
+
+    def test_fenics_grad_interpolator_rectangle_right(self):
+        nx = 5
+        ny = 6
+        P0 = np.array([4, 1])
+        P1 = np.array([10, 23])
+        mesh, fn_space = pde_utils.setup_rectangular_function_space(nx, ny, P0, P1)
+
+        u_fenics = fc.interpolate(fc.Expression('x[0]+pow(x[1],2)', degree=1), fn_space)
+        u_fenics_grad = pde_utils.fenics_grad(mesh, u_fenics)
+        grad_approxim = pde_utils.FenicsRectangleGradInterpolator(nx, ny, P0, P1, u_fenics)
+
+        X,Y =np.meshgrid(np.linspace(4.01,9.995,24),
+                        np.linspace(2.01,22.995,13),indexing='ij')
+        coords = np.stack((X,Y),axis=-1)
+        np.testing.assert_almost_equal(grad_approxim(coords) -
+                                       pde_utils.native_fenics_eval_vec(u_fenics_grad,coords),
+                                       0, decimal=6)
 
 
 class TestFenicsFnWrap(unittest.TestCase):
