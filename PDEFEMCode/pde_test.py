@@ -50,7 +50,7 @@ class TestEllipticSolver(TestCase):
             self.LHS,
             self.RHS, RHS_fn
         )
-        u_sol = pde_utils.solve_pde(self.fn_space, LHS_int, RHS_int)
+        u_sol = pde_utils.solve_vp(self.fn_space, LHS_int, RHS_int)
 
         error_L2 = pde_utils.error_L2(u_ref, u_sol)
         error_LInf = pde_utils.error_LInf_piece_lin(u_ref, u_sol, self.mesh)
@@ -373,8 +373,8 @@ class TestFenicsFnWrap(unittest.TestCase):
         X, Y = np.random.uniform(0, 1, (2, 5))
         test_xy(X, Y)
 
-        #test 2d grid.
-        X,Y = np.meshgrid(np.linspace(0,1,20),np.linspace(0,1,18),indexing='ij')
+        #test 2d grid, without points on the boundary of each gradient jump.
+        X,Y = np.meshgrid(np.linspace(0.01,.995,20),np.linspace(0.01,.992,18),indexing='ij')
         test_xy(X,Y)
 
         #test point
