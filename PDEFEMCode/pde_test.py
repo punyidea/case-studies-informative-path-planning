@@ -301,7 +301,7 @@ class TestInterpolators(unittest.TestCase):
         P1 = np.array([10, 23])
         mesh, fn_space = pde_utils.setup_rectangular_function_space(nx, ny, P0, P1)
 
-        u_fenics = fc.interpolate(fc.Expression('x[0]+pow(x[1],2)', degree=1), fn_space)
+        u_fenics = fc.interpolate(fc.Expression('x[0]+pow(x[0],3)/42+pow(x[1],2)', degree=1), fn_space)
         u_fenics_grad = pde_utils.fenics_grad(mesh, u_fenics)
         grad_approxim = pde_utils.FenicsRectangleGradInterpolator(nx, ny, P0, P1, u_fenics)
 
