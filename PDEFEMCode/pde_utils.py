@@ -381,17 +381,25 @@ class FenicsRectangleLinearInterpolator():
 class FenicsRectangleGradInterpolator(FenicsRectangleLinearInterpolator):
     '''
     Wraps a fenics function object so that it may be called by a function which supplies numpy arrays.
-    Return
-    It is memory inefficient but runtime efficient: by means of linear interpolation, the query value is computed in
-    8 operations
+    It is memory inefficient but runtime efficient.
+    NOTE: DEPENDENT ON USING RECTANGULAR MESH WITH UP/RIGHT diagonals.
+    INITIALIZATION VARS
     :param mesh: the fenics mesh object that we used.
     :param nx, ny: number of side rectangular cells in x and y directions
-    :param
-    :param u_fenics: the function to wrap in an interpolator
-    :return: a function, which when evaluated,
-        gives the function evaluated at coordinates.
-    :return: Fenics function which computes the gradient of the provided function (a discontinuous mesh)
+    :param P0: Minimum coordinates (x, then y) of the bounding box of the mesh
+    :param P1: Maximum coordinates (x, then y) of the bounding box
+    :param u_fenics: the function to wrap in an interpolator, and eval. gradient.
+    :return: an obhect, that when called, computes the gradient of the provided function (a discontinuous mesh)
+
+
+    Above, coords is shape (don't care x 2), to imitate shape of native fenics caller.
+    #CALL VARS (coords). See __call__()
+
+    Use case:
+        grad_fn     = FenicsRectangleGradInterpolator(nx, ny, P0, P1, u_fenics)
+        grad_eval   = grad_fn(coords)
     '''
+
     def pre_computations(self):
         nx,ny = self.nx,self.ny
         self.x = np.linspace(self.x0, self.x1, nx + 1)
@@ -415,9 +423,9 @@ class FenicsRectangleGradInterpolator(FenicsRectangleLinearInterpolator):
 
     def __call__(self,coords):
         '''
-        When called.
+        When called, returns the gradient of the point on the mesh.
         :param coords: coordinates on which we'd like to shape (don't care) by 2
-        :return:
+        :return: gradient of the interpolator, shape  (coords.shape[:-1} x2)
         '''
         coords_shape =coords.shape
         coords_rs = np.reshape(coords,(-1,coords_shape[-1]))
