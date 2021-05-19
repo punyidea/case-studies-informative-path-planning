@@ -24,16 +24,9 @@ def setup_function_space(n):
     """
     # Create mesh and define function space
     mesh = fc.UnitSquareMesh(n, n)
-    fn_space = fc.FunctionSpace(mesh, 'P', 1)
+    fn_space = fc.FunctionSpace(mesh, 'Lagrange', 1)
     return mesh,fn_space
 
-# # Define boundary condition
-# u_D = Constant('-6')
-#
-# def boundary(x, on_boundary):
-#     return on_boundary
-#
-# bc = DirichletBC(V, u_D, boundary)
 
 def variational_formulation(u_trial,v_test,LHS, RHS,RHS_fn, LHS_args = None, RHS_args=None):
     '''
@@ -154,6 +147,8 @@ def error_LInf_piece_lin(u_ref,u_sol,mesh):
     return np.max(np.abs(vertex_values_u_D - vertex_values_u))
 
 
+## Interpolating Functions
+
 def fenics_unit_square_function_wrap(mesh,n,u_fenics):
     '''
     Wraps a fenics function object so that it may be called by a function which supplies numpy arrays.
@@ -170,21 +165,49 @@ def fenics_unit_square_function_wrap(mesh,n,u_fenics):
     return RegularGridInterpolator(interpolator_coords,fn_vals,method='linear')
 
 
-def fenics_grad_wrap(mesh,n,u_fenics):
+
+
+
+## Convenient Fenics evaluation wrappers
+def native_fenics_eval_scalar(u_fenics, coords):
+    '''
+    Natively evaluate a function using fenics' evaluator.
+    :param u_fenics: fenics function.
+    :param coords: points such that shape.coords[-1] is the number of dimensions of the function space.
+        NOTE! Coords is not in separate (X,Y) form.
+    :return:
+    '''
+    out_arr_shape = coords.shape[:-1]
+    coords_reshape = coords.reshape((-1, coords.shape[-1]))
+    out_arr = np.empty(coords_reshape.shape[0])
+    for ind, coord in enumerate(coords_reshape):
+        u_fenics.eval(out_arr[ind:ind+1], coord) #slice used here for 1d case.
+    return out_arr.reshape(out_arr_shape)
+
+def native_fenics_eval_vec(vec_fenics, coords):
+    '''
+    Natively evaluate a function using fenics' evaluator.
+    :param vec_fenics: fenics vector function with output dimension dim_out.
+    :param dim_out: a
+    :param coords: points such that shape.coords[-1] is the number of dimensions of the function space.
+        NOTE! Coords is not in separate (X,Y) form.
+    :return: a shape with the same dimension as coords, but where the last index contains all dims of the fenics output.
+    '''
+    dim_out = vec_fenics.value_dimension(0)
+    out_arr_shape = coords.shape[:-1] + (dim_out,) # plus is Python concatenation of tuples.
+    coords_reshape = coords.reshape((-1, coords.shape[-1]))
+    out_arr = np.empty((coords_reshape.shape[0],dim_out))
+    for ind, coord in enumerate(coords_reshape):
+        vec_fenics.eval(out_arr[ind], coord)
+    return out_arr.reshape(out_arr_shape)
+
+
+
+def fenics_grad(mesh,u_fenics):
     '''
     Wraps a fenics function object so that it may be called by a function which supplies numpy arrays.
-    :return: a function, which when evaluated,
-        gives the gradient of the function evaluated at coordinates.
-    TODO: document function shape.
+    :return: Fenics function which computes the gradient of the provided function (a discontinuous mesh)
     '''
-    gradspace = fc.VectorFunctionSpace(mesh,'DG',0)
+    gradspace = fc.VectorFunctionSpace(mesh,'DG',0) #discontinuous lagrange.
     grad_fc = fc.project(fc.grad(u_fenics),gradspace)
-    grad_eval = np.empty(2)
-    grad_fc.eval(grad_eval,[0.234235,0.23456])
-    return grad_eval
-# # Print errors
-# print('error_L2  =', error_L2)
-# print('error_max =', error_max)
-#
-# # Hold plot
-# plt.show()
+    return grad_fc

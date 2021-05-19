@@ -4,7 +4,20 @@ import PDEFEMCode.pde_utils as pde_utils
 import fenics as fc
 import numpy as np
 
-class TestPDESolver(TestCase):
+
+## Helper functions used in testing only.###
+
+def grad_hat_ref(X, Y):
+    X_center, Y_center = 0.5 - X, 0.5 - Y
+    Y_geq_X = np.abs(Y_center) >= np.abs(X_center)
+    return np.array([0, 2]) * ((Y_geq_X) * np.sign(Y_center))[..., np.newaxis] + \
+           np.array([2, 0]) * ((np.logical_not(Y_geq_X)) * np.sign(X_center))[..., np.newaxis]
+
+def eval_hat(X, Y):
+    return 1 - 2 * np.maximum(np.abs(X - .5), np.abs(Y - .5))
+
+## Begin Testing code.
+class TestEllipticSolver(TestCase):
     @classmethod
     def setUpClass(self):
         n=100
@@ -93,11 +106,15 @@ class TestPDESolver(TestCase):
         np.testing.assert_allclose(OOC,2,atol=.03)
 
 
-class TestPDEWrap(unittest.TestCase):
-    n = 50
-    mesh, fn_space = pde_utils.setup_function_space(50)
+class TestInterpolators(unittest.TestCase):
+    '''
+    Tests the non-native interpolators.
+    '''
+    def setUp(self):
+        self.n = 50
+        self.mesh, self.fn_space = pde_utils.setup_function_space(50)
 
-    def test_fenics_function(self):
+    def test_fenics_interpolate_bilin(self):
 
         affine_fc = fc.Expression('1 + 3*x[0] + 4*x[1]',
             element=self.fn_space.ufl_element())
@@ -107,13 +124,90 @@ class TestPDEWrap(unittest.TestCase):
         eval_wrap = affine_np(np.stack((X,Y),axis=-1))
         np.testing.assert_almost_equal(eval_ref,eval_wrap)
 
-    def test_fenics_grad(self):
 
-        affine_fc = fc.Expression('1 + 3*x[0] + 4*x[1]',
+
+
+
+class TestFenicsFnWrap(unittest.TestCase):
+    '''
+    Tests the wrappers of fenics built-in functions.
+    '''
+
+
+    def setUp(self):
+        self.mesh = fc.UnitSquareMesh(1,1,"crossed")
+        self.fn_space = fc.FunctionSpace(self.mesh,'Lagrange',1)
+
+    def test_fenics_fn_wrap(self):
+        def test_xy(X,Y):
+            ref_sol = affine_ref_f(X,Y)
+            coords = np.stack((X,Y),axis=-1)
+            calc_sol = pde_utils.native_fenics_eval_scalar(affine_fc,coords)
+            np.testing.assert_array_almost_equal(calc_sol,ref_sol)
+
+        affine_ref_f = lambda X,Y: 1 + 3*X + 4*Y
+        affine_exp = fc.Expression('1 + 3*x[0] + 4*x[1]',
+                                  element=self.fn_space.ufl_element())
+        affine_fc = fc.interpolate(affine_exp,self.fn_space)
+
+        # test random vectors
+        X, Y = np.random.uniform(0, 1, (2, 5))
+        test_xy(X, Y)
+
+        #test 2d grid.
+        X,Y = np.meshgrid(np.linspace(0,1,20),np.linspace(0,1,18),indexing='ij')
+        test_xy(X,Y)
+
+        #test point
+        X,Y = np.array([0.3,.2])
+        test_xy(X,Y)
+
+
+
+    def test_fenics_grad_wrap_affine(self):
+        def test_xy(X, Y):
+            ref_sol = affine_grad_ref_f(X, Y)
+            coords = np.stack((X, Y), axis=-1)
+            calc_sol = pde_utils.native_fenics_eval_vec(grad_affine_fc, coords)
+            np.testing.assert_array_almost_equal(calc_sol, ref_sol)
+
+        affine_grad_ref_f = lambda X, Y: np.ones_like(X)[..., np.newaxis] * np.array([3, 4])
+        affine_exp = fc.Expression('1 + 3*x[0] + 4*x[1]',
+                                   element=self.fn_space.ufl_element())
+        affine_fc = fc.interpolate(affine_exp, self.fn_space)
+        grad_affine_fc = pde_utils.fenics_grad(self.mesh,affine_fc)
+        # test random vectors
+        X, Y = np.random.uniform(0, 1, (2, 5))
+        test_xy(X, Y)
+
+        #test 2d grid.
+        X,Y = np.meshgrid(np.linspace(0,1,20),np.linspace(0,1,18),indexing='ij')
+        test_xy(X,Y)
+
+        #test point
+        X,Y = np.array([0.3,.2])
+        test_xy(X,Y)
+
+    def test_fenics_grad_wrap_hat(self):
+        def test_xy(X, Y):
+            ref_sol = grad_hat_ref(X, Y)
+            coords = np.stack((X, Y), axis=-1)
+            calc_sol = pde_utils.native_fenics_eval_vec(grad_hat_fc, coords)
+            np.testing.assert_array_almost_equal(calc_sol, ref_sol)
+
+        # hat function
+        hat_fc = fc.Expression('1 - 2*max(abs(x[0]-.5),abs(x[1]-.5))',
            degree=1)
-        affine_fc_fenics = fc.interpolate(affine_fc,self.fn_space)
-        grad_eval = pde_utils.fenics_grad_wrap(self.mesh,self.n,affine_fc_fenics)
-        X,Y = np.meshgrid(np.linspace(0,1,40),np.linspace(0,1,40),indexing='ij')
-        eval_ref = 1 + 3*X + 4*Y
-        #eval_wrap = affine_np(np.stack((X,Y),axis=-1))
-        np.testing.assert_almost_equal([3,4],grad_eval)
+        hat_fc_fenics = fc.interpolate(hat_fc,self.fn_space)
+        grad_hat_fc = pde_utils.fenics_grad(self.mesh,hat_fc_fenics)
+        # test random vectors
+        X, Y = np.random.uniform(0, 1, (2, 5))
+        test_xy(X, Y)
+
+        #test 2d grid.
+        X,Y = np.meshgrid(np.linspace(0,1,20),np.linspace(0,1,18),indexing='ij')
+        test_xy(X,Y)
+
+        #test point
+        X,Y = np.array([0.3,.2])
+        test_xy(X,Y)
