@@ -168,7 +168,7 @@ def elliptic_RHS(v_test, RHS_fn, **kwargs):
 def general_LHS(u_trial, v_test, dt=1, alpha=1):
     '''
     returns the LHS a(u_next, v) of the parabolic problem provided in the project handout:
-    D_t u  - \alpha \Delta u = f, u(0)=0, Neumann BC
+    D_t u  - \alpha \Delta u = f, u(0)=0, homogeneous Neumann BC and initial conditions
     as discretized by means of the implicit Euler's method =>
     a(u_next, v) = \int u_trial * v dx + \int dt * alpha * dot(grad(u_trial), grad(v)) dx
     L(v) = (u_previous + dt * f) * v * dx
@@ -193,7 +193,7 @@ def general_LHS(u_trial, v_test, dt=1, alpha=1):
 def general_RHS(v_test, RHS_fn, dt=1, u_previous=0):
     '''
     returns the RHS L(v) = (u_previous + dt * f) * v * dx of the parabolic problem provided in the project handout:
-    D_t u  - \alpha \Delta u = f, u(0)=0, Neumann BC
+    D_t u  - \alpha \Delta u = f, u(0)=0, homogeneous Neumann BC and initial conditions
     as discretized by means of the implicit Euler's method =>
     a (u_next, v) = \int u_trial * v dx + \int dt * alpha * dot(grad(u_trial), grad(v)) dx
     L (v) = (u_previous + dt * f) * v * dx
