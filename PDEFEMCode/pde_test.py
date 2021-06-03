@@ -100,8 +100,6 @@ class TestPDEEllipticSolver(TestCase):
 
         print(time.time() - ts)
 
-
-
 class TestPDEParabolicSolver(TestCase):
     fc.set_log_active(False)  # disable messages of Fenics
 
@@ -187,13 +185,27 @@ class TestPDEParabolicSolver(TestCase):
     def test_easy_polynomial(self):
 
         '''
-        Expected behaviour: the exact solution (up to machine precision) is computed
+        Expected behaviour: loglog(time_array, err_tot) and loglog(time_array, 1/time_array) should be parallel, in the
+        L2 norm. Moreover, the error shouldn't depend on the time discretization.
         '''
 
         RHS_fn = fc.Expression('3*pow(x[0],2) - 2*pow(x[0],3) + (3 - 2*x[1])*pow(x[1],2) + 12*t*(-1 + x[0] + x[1])',
                                degree=2, t=0)
         u_ref = fc.Expression('t*(3*pow(x[0],2) - 2*pow(x[0],3) + (3 - 2*x[1])*pow(x[1],2))', degree=2, t=0)
+
+        # Overwriting discretizations parameters
+        self.T = 1.0  # final time
+        self.D = 8  # how many times do we want to do solve our problem ?
+        self.initial_power = 7
+        self.final_power = 11
+        self.time_array = np.ceil(np.logspace(self.initial_power, self.final_power, self.D, base=2.0)).astype(
+            int)  # vector of total time steps, per time we do a time discretization
+        self.N_array = np.ceil(np.repeat([20], self.D)).astype(int)  # vector of mesh sizes
+
+        err = 'L2'  # error to be outputted ('uni', 'L2', 'H1')
+
         err_tot = self.solve_obtain_error(RHS_fn, u_ref)
+        np.savetxt('err_' + self.err + '_easy_polynomial.txt', err_tot)
         raise Exception('Error test not implemented')
 
     def test_constant(self):
