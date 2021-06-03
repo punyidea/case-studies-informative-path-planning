@@ -4,6 +4,7 @@ import PDEFEMCode.pde_utils as pde_utils
 import fenics as fc
 import numpy as np
 
+
 class TestPDEEllipticSolver(TestCase):
     mesh, fn_space = pde_utils.setup_function_space(100)
     LHS = staticmethod(pde_utils.elliptic_LHS)
@@ -67,7 +68,7 @@ class TestPDEEllipticSolver(TestCase):
 
         wrap = pde_utils.fenics_rectangle_function_wrap(nx, ny, P0, P1, u_fenics)
         my_interp = wrap.get_interpolator()
-        #my_interp_ref = wrap.get_scipy_interpolator()
+        # my_interp_ref = wrap.get_scipy_interpolator()
 
         # P = np.array([[5, 20], [4, 1], [8, 23], [9.5, 1.1], [10, 2.5]])
         # import time
@@ -100,6 +101,7 @@ class TestPDEEllipticSolver(TestCase):
 
         print(time.time() - ts)
 
+
 class TestPDEParabolicSolver(TestCase):
     fc.set_log_active(False)  # disable messages of Fenics
 
@@ -112,9 +114,9 @@ class TestPDEParabolicSolver(TestCase):
 
     # Discretizations parameters
     T = 1.0  # final time
-    D = 8  # how many times do we want to do solve our problem ?
+    D = 4  # how many times do we want to do solve our problem ?
     initial_power = 7
-    final_power = 14
+    final_power = 10
     time_array = np.ceil(np.logspace(initial_power, final_power, D, base=2.0)).astype(
         int)  # vector of total time steps, per time we do a time discretization
     N_array = np.ceil(np.sqrt(time_array)).astype(int)  # vector of mesh sizes
@@ -155,6 +157,8 @@ class TestPDEParabolicSolver(TestCase):
 
             t = times[0]  # initial time
 
+            computed_error = False
+
             # Solving
             for n in range(curr_time_steps):
                 # Time update
@@ -168,17 +172,20 @@ class TestPDEParabolicSolver(TestCase):
                 # Update previous solution
                 u_previous.assign(u_current)
 
+                # Saving the error only at the middle timestep
+                if t > 0.5 and not computed_error:
+                    if self.err == 'uni':
+                        error = pde_utils.error_LInf_piece_lin(u_ref, u_current, mesh)
+                    elif self.err == 'L2':
+                        error = fc.errornorm(u_ref, u_current, 'L2')
+                    else:
+                        error = fc.errornorm(u_ref, u_current, 'H1')
+
+                    err_tot[current_discr] = error
+
+                    computed_error = True
+
                 print('Discretization: ', current_discr, '\nStep :', n)
-
-            # Saving the error only at the last timestep
-            if self.err == 'uni':
-                error = pde_utils.error_LInf_piece_lin(u_ref, u_current, mesh)
-            elif self.err == 'L2':
-                error = fc.errornorm(u_ref, u_current, 'L2')
-            else:
-                error = fc.errornorm(u_ref, u_current, 'H1')
-
-            err_tot[current_discr] = error
 
         return err_tot
 
@@ -250,7 +257,7 @@ class TestPDEParabolicSolver(TestCase):
         u_ref = fc.Expression(uexpr, degree=6, t=0)
 
         err_tot = self.solve_obtain_error(RHS_fn, u_ref)
-        np.savetxt('err_'+self.err+'_one_bump.txt',err_tot )
+        np.savetxt('err_' + self.err + '_one_bump.txt', err_tot)
 
         # results from matlab: -0.7810   -0.8272   -0.8354   -0.9781   -0.9205   -0.9978   -0.9757
 
@@ -311,7 +318,8 @@ class TestPDEParabolicSolver(TestCase):
                               degree=2, t=0)
 
         err_tot = self.solve_obtain_error(RHS_fn, u_ref)
-        np.savetxt('err_'+self.err+'_polynomial.txt',err_tot )
+        print(err_tot)
+        # np.savetxt('err_'+self.err+'_polynomial.txt',err_tot )
         # results from matlab: -0.8565   -1.0323   -0.9597   -1.0363   -0.9617   -1.0122   -0.9873
         raise Exception('Error test not implemented')
 
@@ -330,7 +338,7 @@ class TestPDEParabolicSolver(TestCase):
         # Note, for very 'high' functions, the difference between me and Fenics is O(1e-6), instead of O(1e-13)
         wrap = pde_utils.fenics_rectangle_function_wrap(nx, ny, P0, P1, list_fenics, time_dependent=True, verbose=True)
         my_interp = wrap.get_interpolator()
-        #my_interp_ref = wrap.get_scipy_interpolator()
+        # my_interp_ref = wrap.get_scipy_interpolator()
 
         P = np.array([[5.1, 22], [4, 18], [8, 23], [9.5, 1.1], [10, 2.5]])
         not_mine = np.zeros(len(list_fenics))
@@ -338,11 +346,12 @@ class TestPDEParabolicSolver(TestCase):
             mine = my_interp(P[i, :], [0, 1, 2])
 
             for j in range(len(list_fenics)):
-                not_mine[j] =list_fenics[j](P[i, :])
+                not_mine[j] = list_fenics[j](P[i, :])
 
             delta = mine - not_mine
             print(delta)
             np.testing.assert_almost_equal(np.max(np.abs(delta)), 0, decimal=8)
+
 
 class TestPDEWrap(unittest.TestCase):
     n = 50

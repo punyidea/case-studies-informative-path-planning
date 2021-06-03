@@ -332,7 +332,7 @@ class fenics_rectangle_function_wrap():
                 Ty_glo.append(Ty)
 
                 if verbose:
-                    print('Building interpolator, ', 100 * (i + 1) / len(fem_data), ' % done.')
+                    print('Building function interpolator, ', str(np.floor(100 * (i + 1) / len(fem_data))), ' % done.')
 
             self.T_glo = np.array(T_glo)
             self.Tx_glo = np.array(Tx_glo)
@@ -450,7 +450,7 @@ class fenics_rectangle_function_wrap():
         Py = self.Ty[index_def, type_def] * M[:, 1]
         N = self.T[index_def, type_def] + Px + Py
 
-        return N / self.D
+        return np.squeeze(N / self.D)
 
     def get_interpolator_parabolic(self, M, It):
         '''
@@ -458,9 +458,11 @@ class fenics_rectangle_function_wrap():
         It returns a matrix that is NxT (N spatial interpolations at every time)
         '''
 
-        # If a single query point
+        # If a single query point / single time
         if len(np.shape(M)) == 1:
             M = np.array([M])
+        if not type(It) == list:
+            It=[It]
 
         # Getting the index of the rectangular cell and the type of the triangle, while also ensuring the query index
         # is admissible (and at the same time: being able to input any point we want)
@@ -470,11 +472,12 @@ class fenics_rectangle_function_wrap():
         type_def = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
 
         # Interpolation (time dependent version)
-        Px = self.Tx_glo[It, index_def, type_def] * M[:, 0]
-        Py = self.Ty_glo[It, index_def, type_def] * M[:, 1]
-        N = self.T_glo[It, index_def, type_def] + Px + Py
+        row_indices = np.array(It)[:, None]
+        Px = self.Tx_glo[row_indices, index_def, type_def] * M[:, 0]
+        Py = self.Ty_glo[row_indices, index_def, type_def] * M[:, 1]
+        N = self.T_glo[row_indices, index_def, type_def] + Px + Py
 
-        return N / self.D
+        return np.squeeze(N / self.D)
 
     def get_interpolator(self):
         '''
