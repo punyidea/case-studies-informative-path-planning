@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import RegularGridInterpolator
 
+
 ### To remove?
 def setup_function_space(n):
     """
@@ -25,6 +26,7 @@ def setup_function_space(n):
     mesh = fc.UnitSquareMesh(n, n)
     fn_space = fc.FunctionSpace(mesh, 'P', 1)
     return mesh, fn_space
+
 
 def setup_rectangular_function_space(nx, ny, P0, P1):
     """
@@ -46,6 +48,7 @@ def setup_rectangular_function_space(nx, ny, P0, P1):
     mesh = fc.RectangleMesh(fc.Point(P0[0], P0[1]), fc.Point(P1[0], P1[1]), nx, ny)
     fn_space = fc.FunctionSpace(mesh, 'P', 1)
     return mesh, fn_space
+
 
 # # Define boundary condition
 # u_D = Constant('-6')
@@ -69,6 +72,7 @@ def setup_time_discretization(T, Nt):
     dt = 1 / Nt
     times = np.linspace(0, T, Nt + 1)
     return dt, times
+
 
 def variational_formulation(u_trial, v_test, LHS, RHS, RHS_fn, LHS_args=None, RHS_args=None):
     '''
@@ -101,6 +105,7 @@ def variational_formulation(u_trial, v_test, LHS, RHS, RHS_fn, LHS_args=None, RH
     RHS_int = RHS(v_test, RHS_fn, **RHS_args)
     return LHS_int, RHS_int
 
+
 def solve_pde(Fn_space, LHS_int, RHS_int, bc=None):
     '''
     Generates a FENICS solution function on the function space,
@@ -115,6 +120,7 @@ def solve_pde(Fn_space, LHS_int, RHS_int, bc=None):
     u_sol = fc.Function(Fn_space)
     fc.solve(LHS_int == RHS_int, u_sol, bcs=bc)
     return u_sol
+
 
 def solve_vp(Fn_space, LHS_int, RHS_int, bc=None):
     '''
@@ -131,6 +137,7 @@ def solve_vp(Fn_space, LHS_int, RHS_int, bc=None):
     fc.solve(LHS_int == RHS_int, u_sol, bcs=bc)
     return u_sol
 
+
 ## BEGIN SAMPLE LHS and RHS functions.
 def elliptic_LHS(u_trial, v_test, **kwargs):
     '''
@@ -144,6 +151,7 @@ def elliptic_LHS(u_trial, v_test, **kwargs):
     '''
     return (fc.dot(fc.grad(u_trial), fc.grad(v_test)) + u_trial * v_test) * fc.dx
 
+
 def elliptic_RHS(v_test, RHS_fn, **kwargs):
     '''
     returns the RHSof the elliptic problem provided in the project handout:
@@ -155,6 +163,7 @@ def elliptic_RHS(v_test, RHS_fn, **kwargs):
     :return: an integral form of the equation, ready to be used in solve_pde.
     '''
     return RHS_fn * v_test * fc.dx
+
 
 def general_LHS(u_trial, v_test, dt=1, alpha=1):
     '''
@@ -180,6 +189,7 @@ def general_LHS(u_trial, v_test, dt=1, alpha=1):
 
     return (dt * alpha * fc.dot(fc.grad(u_trial), fc.grad(v_test)) + u_trial * v_test) * fc.dx
 
+
 def general_RHS(v_test, RHS_fn, dt=1, u_previous=0):
     '''
     returns the RHS L(v) = (u_previous + dt * f) * v * dx of the parabolic problem provided in the project handout:
@@ -203,6 +213,7 @@ def general_RHS(v_test, RHS_fn, dt=1, u_previous=0):
 
     return (dt * RHS_fn + u_previous) * v_test * fc.dx
 
+
 # Compute error in L2 norm
 def error_L2(u_ref, u_sol):
     '''
@@ -213,6 +224,7 @@ def error_L2(u_ref, u_sol):
     '''
     return fc.errornorm(u_ref, u_sol, 'L2')
 
+
 def error_H1(u_ref, u_sol):
     '''
     Returns the H1 error between two FENICS objects.
@@ -221,6 +233,7 @@ def error_H1(u_ref, u_sol):
     :return:
     '''
     return fc.errornorm(u_ref, u_sol, 'H1')
+
 
 def error_LInf_piece_lin(u_ref, u_sol, mesh):
     '''
@@ -260,14 +273,15 @@ class fenics_rectangle_function_wrap():
     8 operations
     :param mesh: the fenics mesh object that we used.
     :param nx, ny: number of side rectangular cells in x and y directions
-    :param
-    :param u_fenics: the function to wrap in an interpolator
+    :param time_dependent. If True, we return the interpolator for the parabolic equation, for the elliptic otherwise.
+        It's False by default.
+    :param fem_data: the function to wrap in an interpolator if time_dependent = False,
+        the ordered list of all such functions (as time varies), if time_dependent = True
     :return: a function, which when evaluated,
         gives the function evaluated at coordinates.
     '''
 
-    def __init__(self, nx, ny, P0, P1, u_fenics):
-        self.mesh = u_fenics.function_space().mesh()
+    def __init__(self, nx, ny, P0, P1, fem_data, time_dependent=False, verbose = False):
         self.nx = nx
         self.ny = ny
         self.x0 = P0[0]
@@ -276,19 +290,45 @@ class fenics_rectangle_function_wrap():
         self.y1 = P1[1]
         self.hx = (P1[0] - P0[0]) / nx
         self.hy = (P1[1] - P0[1]) / ny
-        self.u = u_fenics
+        self.D = self.hx * self.hy
+        self.slope = self.hy / self.hx
+        self.pad_v = np.array([self.nx - 1, self.ny - 1])
+        self.zero = np.array([0, 0])
+        self.time_dependent = time_dependent
 
-        self.pre_computations()
+        if not time_dependent:
+            self.mesh = fem_data.function_space().mesh()
+            u = fem_data
+            self.T, self.Txy = self.pre_computations(u)
+        else:
+            self.mesh = fem_data[0].function_space().mesh()  # the mesh doesn't change with time
+            # Let's make a list of the same tensors we built in the time independent case
+            T_glo = []
+            Txy_glo = []
+            for i in range(len(fem_data)):
 
-    def pre_computations(self):
+                u = fem_data[i]
+                T, Txy = self.pre_computations(u)
+
+                T_glo.append(T)
+                Txy_glo.append(Txy)
+
+                if verbose:
+                    print('Building interpolator, ', 100 * (i + 1) / len(fem_data), ' % done.')
+
+            self.T_glo = np.array(T_glo)
+            self.Txy_glo = np.array(Txy_glo)
+
+    def pre_computations(self, u):
 
         # Nodes of the mesh and nodal values of u. For i=0,...,nx and j=0,...,ny, we have the l-th entry l=i+j(nx+1)
         coords = self.mesh.coordinates()  # a 1+nx+ny(nx+1) x 2 matrix
-        nodal_vals = self.u.compute_vertex_values()
+        nodal_vals = u.compute_vertex_values()
+
+        nx = self.nx
+        ny = self.ny
 
         # Some grids
-        nx=self.nx
-        ny=self.ny
         self.x = np.linspace(self.x0, self.x1, nx + 1)
         self.y = np.linspace(self.y0, self.y1, ny + 1)
 
@@ -364,38 +404,71 @@ class fenics_rectangle_function_wrap():
         Ty_up = self.hx * u_1_up - self.hx * u_3_up
 
         # All together
-        self.T = np.array([T_dw, T_up]).T
-        self.Tx = np.array([Tx_dw, Tx_up]).T
-        self.Ty = np.array([Ty_dw, Ty_up]).T
+        T = np.array([T_dw, T_up]).T
+        Tx = np.array([Tx_dw, Tx_up]).T
+        Ty = np.array([Ty_dw, Ty_up]).T
+        Txy = np.array([Tx, Ty])  # In Pythonics, these is a tensor. The first index let's us switch between Px, Py
 
-        self.D = self.hx * self.hy
+        return T, Txy
 
-        self.slope = self.hy / self.hx
-
-    def get_interpolator(self, M):
+    def get_interpolator_elliptic(self, M):
         '''
         It takes in a matrix of N points (Nx2)
         For every point it computes the triangle type and triangle index
-        It returns an Nx2 matrix, the first column describes the index, the second is 0 for dw triangle, 1 for up triangles
+        We build an Nx2 matrix, the first column is for the index, the second is 0 for dw triangle, 1 for up triangles
+        We finally compute and return the interpolated values
         '''
 
         if len(np.shape(M)) == 1:
             M = np.array([M])
 
         index_raw, type_raw = np.divmod(M - [self.x0, self.y0], [self.hx, self.hy])
+        # Ensuring the query index is admissible (and at the same time: being able to input any point we want)
+        index_raw = np.maximum(np.minimum(index_raw, self.pad_v), self.zero)
+
         index_def = np.squeeze((index_raw[:, 0] + index_raw[:, 1] * self.nx)).astype(int)
         type_def = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
 
-        # Interpolation
-        Px = self.Tx[index_def, type_def] * M[:, 0]
-        Py = self.Ty[index_def, type_def] * M[:, 1]
-        N = self.T[index_def, type_def] + Px + Py
+        # Interpolation (only this has to be repeated in case of a time dependent pde)
+        Pt = self.Txy[:, index_def, type_def]
+        P = np.sum(Pt * M, axis=1)
+        N = self.T[index_def, type_def] + P
 
         return N / self.D
 
+    def get_interpolator_parabolic(self, M, It):
+        '''
+        It takes in a matrix of N points (Nx2) and an array of time indices (Tx1). It is a subset of 0:len(fem_data)
+        For every point and every time it computes the triangle type and triangle index
+        We build a Nx2 matrix, the first column is for the index, the second is 0 for dw triangle, 1 for up triangles
+        We return a matrix that is NxT (N spatial interpolations at every time)
+        '''
+
+        if len(np.shape(M)) == 1:
+            M = np.array([M])
+
+        index_raw, type_raw = np.divmod(M - [self.x0, self.y0], [self.hx, self.hy])
+        # Ensuring the query index is admissible (and at the same time: being able to input any point we want)
+        index_raw = np.maximum(np.minimum(index_raw, self.pad_v), self.zero)
+
+        index_def = np.squeeze((index_raw[:, 0] + index_raw[:, 1] * self.nx)).astype(int)
+        type_def = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
+
+        # Interpolation (only this has to be repeated in case of a time dependent pde)
+        Pt = self.Txy_glo[It, :, index_def, type_def]
+        P = np.sum(Pt * M, axis=-1) # the last axis
+        N = self.T_glo[It, index_def, type_def] + P
+
+        return N / self.D
+
+    def get_interpolator(self):
+        if not self.time_dependent:
+            return self.get_interpolator_elliptic
+        else:
+            return self.get_interpolator_parabolic
+
     def get_scipy_interpolator(self):
         return RegularGridInterpolator((self.x, self.y), self.U)
-
 
 # # Print errors
 # print('error_L2  =', error_L2)
