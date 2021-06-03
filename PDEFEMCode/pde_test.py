@@ -69,18 +69,38 @@ class TestPDEEllipticSolver(TestCase):
         my_interp = wrap.get_interpolator()
         #my_interp_ref = wrap.get_scipy_interpolator()
 
-        P = np.array([[5, 20], [4, 1], [8, 23], [9.5, 1.1], [10, 2.5]])
-        import time
-        for i in range(np.shape(P)[0]):
-            st = time.time()
-            mine = my_interp(P[i, :])
-            print('Mine: ', time.time()-st)
-            st = time.time()
-            not_mine = u_fenics(P[i, :])
-            print('Not mine: ', time.time() - st)
+        # P = np.array([[5, 20], [4, 1], [8, 23], [9.5, 1.1], [10, 2.5]])
+        # import time
+        # for i in range(np.shape(P)[0]):
+        #     st = time.time()
+        #     mine = my_interp(P[i, :])
+        #     print('Mine: ', time.time()-st)
+        #     st = time.time()
+        #     not_mine = u_fenics(P[i, :])
+        #     print('Not mine: ', time.time() - st)
+        #
+        #     delta = mine - not_mine
+        #     np.testing.assert_almost_equal(np.max(np.abs(delta)), 0, decimal=10)
 
-            delta = mine - not_mine
-            np.testing.assert_almost_equal(np.max(np.abs(delta)), 0, decimal=10)
+        P = np.array([9.5, 1.1])
+
+        import time
+
+        ts = time.time()
+        print("Fenics")
+        for i in range(100000):
+            u_fenics(P)
+
+        print(time.time() - ts)
+
+        ts = time.time()
+        print("Mine")
+        P = np.repeat([P], 100000, axis=0)
+        my_interp(P)
+
+        print(time.time() - ts)
+
+
 
 class TestPDEParabolicSolver(TestCase):
     fc.set_log_active(False)  # disable messages of Fenics
@@ -309,6 +329,7 @@ class TestPDEParabolicSolver(TestCase):
                 not_mine[j] =list_fenics[j](P[i, :])
 
             delta = mine - not_mine
+            print(delta)
             np.testing.assert_almost_equal(np.max(np.abs(delta)), 0, decimal=8)
 
 class TestPDEWrap(unittest.TestCase):

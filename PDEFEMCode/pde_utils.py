@@ -315,31 +315,34 @@ class fenics_rectangle_function_wrap():
         if not time_dependent:
             self.mesh = fem_data.function_space().mesh()
             u = fem_data
-            self.T, self.Txy = self.pre_computations(u) # some helping variables to speed up the interpolation later on
+            self.T, self.Tx, self.Ty = self.pre_computations(u) # some helping variables to speed up the interpolation later on
         else:
             self.mesh = fem_data[0].function_space().mesh()  # the mesh doesn't change with time
             # Let's make a list of the helping tensors we built in the time independent case
             T_glo = []
-            Txy_glo = []
+            Tx_glo = []
+            Ty_glo = []
             for i in range(len(fem_data)):
 
                 u = fem_data[i]
-                T, Txy = self.pre_computations(u)
+                T, Tx, Ty = self.pre_computations(u)
 
                 T_glo.append(T)
-                Txy_glo.append(Txy)
+                Tx_glo.append(Tx)
+                Ty_glo.append(Ty)
 
                 if verbose:
                     print('Building interpolator, ', 100 * (i + 1) / len(fem_data), ' % done.')
 
             self.T_glo = np.array(T_glo)
-            self.Txy_glo = np.array(Txy_glo)
+            self.Tx_glo = np.array(Tx_glo)
+            self.Ty_glo = np.array(Ty_glo)
 
     def pre_computations(self, u):
         '''
         It receives a fenics (non time dependent) function and computes some related helping variables to speed up
         the interpolation process later on.
-        These are T and Txy.
+        These are T and Tx, Ty.
         For detailed functioning, refer to the pdf of the tecnical documentation.
         '''
 
@@ -421,15 +424,14 @@ class fenics_rectangle_function_wrap():
         T = np.array([T_dw, T_up]).T
         Tx = np.array([Tx_dw, Tx_up]).T
         Ty = np.array([Ty_dw, Ty_up]).T
-        Txy = np.array([Tx, Ty])  # In Pythonics, these is a tensor. The first index let's us switch between Px, Py
 
-        return T, Txy
+        return T, Tx, Ty
 
     def get_interpolator_elliptic(self, M):
         '''
         It takes in a numpy 2d array of N points (Nx2) (or also a single 2D point, a numpy 1d array)
         It returns the interpolated values at the query points.
-        For details about the functioning refer to the tecnical documentation.
+        For details about the functioning refer to the technical documentation.
         '''
 
         # If a single query point
@@ -444,9 +446,9 @@ class fenics_rectangle_function_wrap():
         type_def = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
 
         # Interpolation
-        Pt = self.Txy[:, index_def, type_def]
-        P = np.sum(Pt * M, axis=1)
-        N = self.T[index_def, type_def] + P
+        Px = self.Tx[index_def, type_def] * M[:, 0]
+        Py = self.Ty[index_def, type_def] * M[:, 1]
+        N = self.T[index_def, type_def] + Px + Py
 
         return N / self.D
 
@@ -468,9 +470,9 @@ class fenics_rectangle_function_wrap():
         type_def = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
 
         # Interpolation (time dependent version)
-        Pt = self.Txy_glo[It, :, index_def, type_def]
-        P = np.sum(Pt * M, axis=-1) # the last axis
-        N = self.T_glo[It, index_def, type_def] + P
+        Px = self.Tx_glo[It, index_def, type_def] * M[:, 0]
+        Py = self.Ty_glo[It, index_def, type_def] * M[:, 1]
+        N = self.T_glo[It, index_def, type_def] + Px + Py
 
         return N / self.D
 
