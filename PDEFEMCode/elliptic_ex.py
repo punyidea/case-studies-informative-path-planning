@@ -5,8 +5,10 @@ This file is a  working example of an elliptic (time independent) PDE solver.
 '''
 
 import PDEFEMCode.pde_utils as pde_utils
+import PDEFEMCode.Object_IO as pde_IO
 import fenics as fc
 import numpy as np
+
 
 
 # Set up the LHS and RHS forms that are used.
@@ -55,7 +57,16 @@ f = pde_utils.FenicsRectangleLinearInterpolator(nx,ny,P0,P1,u_sol)
 u_grad = pde_utils.fenics_grad(mesh,u_sol)
 grad_f = pde_utils.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_grad)
 
+param_save = {'f':f,'grad_f':grad_f}
+
+pde_IO.pickle_save(out_folder,out_file,param_save)
+
+# Code snippet to build intuition on the objects.
 # import matplotlib.pyplot as plt
 # coords = np.stack(np.meshgrid(np.linspace(0,1,200),np.linspace(0,1,200)),axis = -1)
-# f_eval = f.get_interpolator(coords.reshape(-1,2))
+# coords_rs = coords.reshape(-1,2)
+# f_eval = f.get_interpolator(coords_rs)
 # plt.imshow(f_eval.reshape(200,200))
+#
+# grad_f_eval = grad_f(coords) #grad_f(coords_rs) works fine too
+# plt.imshow(grad_f_eval[:,:,0])

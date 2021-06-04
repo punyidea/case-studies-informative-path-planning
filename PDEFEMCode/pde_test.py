@@ -1,6 +1,7 @@
 import unittest
 from unittest import TestCase
 import PDEFEMCode.pde_utils as pde_utils
+import PDEFEMCode.Object_IO as pde_IO
 import fenics as fc
 import numpy as np
 import os
@@ -122,10 +123,10 @@ class TestEllipticSolver(TestCase):
         grad_f = pde_utils.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_grad)
 
         save_params = {'f':f, 'grad_f':grad_f}
-        pde_utils.pickle_save(out_dir,save_file,save_params)
+        pde_IO.pickle_save(out_dir,save_file,save_params)
 
         fname = os.path.join(out_dir,save_file)
-        load_params = pde_utils.pickle_load(fname)
+        load_params = pde_IO.pickle_load(fname)
 
         coords = np.stack(np.meshgrid(np.linspace(0, 1, 20), np.linspace(0, 1, 20)), axis=-1)
 
