@@ -443,8 +443,10 @@ class FenicsRectangleGradInterpolator(FenicsRectangleLinearInterpolator):
         coords_rs = np.reshape(coords,(-1,coords_shape[-1]))
 
         index_float = (coords_rs - [self.x0, self.y0])/[self.hx,self.hy]
-        assert((index_float<=[self.nx+1,self.ny+1]).all())# are we in bounds?
-        assert((index_float>=0).all()) #are we in bounds?
+        eps = 1e-1
+        index_float = np.clip(index_float,[0,0],[self.nx-eps,self.ny-eps])
+        #assert((index_float<=[self.nx,self.ny]).all())# are we in bounds?
+        #assert((index_float>=0).all()) #are we in bounds?
 
         index_int, frac_index = np.divmod(index_float, 1)
         index_int = index_int.astype(int)
