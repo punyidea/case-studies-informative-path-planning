@@ -508,21 +508,3 @@ def fenics_grad(mesh, u_fenics):
     grad_fc = fc.project(fc.grad(u_fenics),gradspace)
     return grad_fc
 
-
-def pickle_save(out_path,fname,param_save,ext='.pkl'):
-    '''
-    Saves parameter
-    :param fname:
-    :param param_save: the Python object to save. Prefer that this is a dictionary with objects to save
-
-    '''
-    fname,_ = os.path.splitext(fname) # only keep root part
-    with open(os.path.join(out_path,fname + ext),'wb') as f_obj:
-        pickle.dump(param_save, f_obj)
-
-def pickle_load(fname,def_ext = '.pkl'):
-    fname,ext = os.path.splitext(fname)
-    if not ext:
-        ext = def_ext
-    with open(fname + ext,'rb') as f_obj:
-        return pickle.load(f_obj)
