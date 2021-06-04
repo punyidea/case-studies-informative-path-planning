@@ -183,6 +183,18 @@ def general_RHS(v_test, RHS_fn, dt=1, u_previous=0):
 
     return (dt * RHS_fn + u_previous) * v_test * fc.dx
 
+
+def gaussian_expression_2D(gamma,u_max,r):
+    '''
+    Returns a fenics string which computes the gaussian in 2D.
+    :param gamma:
+    :param u_max:
+    :param r:
+    :return: the string representation
+    '''
+    return '{} * exp(-(pow(x[0] - {},2) + pow(x[1] - {},2)) /{})'.format(u_max,gamma[0],gamma[1], r)
+
+
 # Compute error in L2 norm
 def error_L2(u_ref, u_sol):
     '''

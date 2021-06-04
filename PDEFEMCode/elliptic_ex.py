@@ -16,12 +16,13 @@ import numpy as np
 #   (see functions elliptic_LHS, elliptic_RHS for templates on how to change the PDE.)
 LHS = pde_utils.elliptic_LHS
 RHS = pde_utils.elliptic_RHS
-gamma = np.array([.7,.5])
-u_max = 1
+rhs_expression_params = {   'gamma':np.array([.7,.5]),
+                            'u_max' : 1,
+                            'r' : 1
+                            }
+rhs_expression = pde_utils.gaussian_expression_2D
 # Note: the expression below is using the string format function to build it.
 #   Gamma is split into two separate numbers.
-u_expression = ('exp(-(pow(x[0] - {},2) + pow(x[1] - {},2)))'.format(*gamma))
-
 
 # Parameters determining the mesh.
 # This is a square size 0.01 mesh on the unit square.
@@ -37,13 +38,13 @@ v_test = fc.TestFunction(fn_space)
 
 # Setup variational formulation, tying the LHS form with the trial function
 # and the RHS form with the test functions and the RHS function.
-RHS_fn = fc.Expression(u_expression, element = fn_space.ufl_element())
+u_rhs_expression = rhs_expression(**rhs_expression_params)
+RHS_fn = fc.Expression(u_rhs_expression, element = fn_space.ufl_element())
 LHS_int, RHS_int = pde_utils.variational_formulation(
     u_trial, v_test,
     LHS,
     RHS, RHS_fn
 )
-
 
 u_sol = pde_utils.solve_vp(fn_space,LHS_int,RHS_int)
 
