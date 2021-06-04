@@ -1,0 +1,22 @@
+
+# Parameters related to PDE setup.
+LHS:    'elliptic_LHS'
+RHS:    'elliptic_RHS'
+
+rhs_fn_expression: 'gaussian_expression' # Gaussian RHS function is exp(-norm(x-gamma)^2/r)
+rhs_exp_params:
+  gamma: [ .7,.5 ] # coordinates of Gaussian point source
+  u_max: 1 #u_max
+  r: 1
+
+# Parameters determining the mesh.
+# As is, it is a square 0.01 step size mesh on the unit square
+nx: 100
+ny: 100
+P0: [0,0]
+P1: [1,1]
+
+# Output interpolator properties
+interp_type: 'Custom Rectanglegrid'
+file_prefix: 'elliptic_square_mesh_interp'
+save_folder: ''
