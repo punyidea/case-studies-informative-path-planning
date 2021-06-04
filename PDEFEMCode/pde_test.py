@@ -3,6 +3,7 @@ from unittest import TestCase
 import PDEFEMCode.pde_utils as pde_utils
 import fenics as fc
 import numpy as np
+import os
 
 
 ## Helper functions used in testing only.###
@@ -20,8 +21,8 @@ def eval_hat(X, Y):
 class TestEllipticSolver(TestCase):
     @classmethod
     def setUpClass(self):
-        n=100
-        self.setup_function_mesh_cls(n)
+        self.n=100
+        self.setup_function_mesh_cls(self.n)
 
     @classmethod
     def setup_function_mesh_cls(cls,n):
@@ -54,7 +55,7 @@ class TestEllipticSolver(TestCase):
 
         error_L2 = pde_utils.error_L2(u_ref, u_sol)
         error_LInf = pde_utils.error_LInf_piece_lin(u_ref, u_sol, self.mesh)
-        return error_L2,error_LInf
+        return error_L2,error_LInf, u_sol
 
     def test_PDE_solve_constant(self):
         # Constant function is supplied.
@@ -63,7 +64,7 @@ class TestEllipticSolver(TestCase):
         RHS_fn = fc.Constant(3.0)
         u_ref = RHS_fn
 
-        error_L2, error_LInf = self.solve_obtain_error(RHS_fn, u_ref)
+        error_L2, error_LInf,_ = self.solve_obtain_error(RHS_fn, u_ref)
         print('Constant function error_L2  =', error_L2)
         print('Constant function error_Linf =', error_LInf)
         np.testing.assert_almost_equal(error_L2,0,decimal=10)
@@ -78,7 +79,7 @@ class TestEllipticSolver(TestCase):
         u_ref = fc.Expression('sin(pi*x[0] + pi/2)*sin(pi*x[1]+pi/2)',
                 element = self.fn_space.ufl_element())
 
-        error_L2, error_LInf = self.solve_obtain_error(RHS_fn, u_ref)
+        error_L2, error_LInf,_ = self.solve_obtain_error(RHS_fn, u_ref)
         print('product sines function error_L2  =', error_L2)
         print('product sines function error_Linf =', error_LInf)
         np.testing.assert_almost_equal(error_L2,0, decimal=3)
@@ -97,13 +98,43 @@ class TestEllipticSolver(TestCase):
         for ind,n_grid in enumerate(n_list):
             self.setup_function_mesh(n_grid)
             self.solve_obtain_error(RHS_fn,u_ref)
-            error_L2_list[ind], error_LInf[ind] = self.solve_obtain_error(RHS_fn,u_ref)
+            error_L2_list[ind], error_LInf[ind],_ = self.solve_obtain_error(RHS_fn,u_ref)
 
         OOC = -(np.log(error_L2_list[1:])-np.log(error_L2_list[:-1])) / \
                 (np.log(n_list[1:])-np.log(n_list[:-1]))
         #check that we are within 0.03 of the desired order of convergence
         np.testing.assert_allclose(OOC,2,atol=.03)
 
+    def testPickleLoad(self):
+        nx = ny = self.n
+        P0 = [0,0]
+        P1 = [1,1]
+        RHS_fn = fc.Expression('(2*pi*pi + 1)*sin(pi*x[0] + pi/2)*sin(pi*x[1]+pi/2)',
+                               element=self.fn_space.ufl_element())
+        u_ref = fc.Expression('sin(pi*x[0] + pi/2)*sin(pi*x[1]+pi/2)',
+                              element=self.fn_space.ufl_element())
+        error_L2, error_LInf, u_sol = self.solve_obtain_error(RHS_fn, u_ref)
+
+        save_file = 'pde_test_sine_sol'
+        out_dir = 'test-files'
+        f = pde_utils.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, u_sol)
+        u_grad = pde_utils.fenics_grad(self.mesh, u_sol)
+        grad_f = pde_utils.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_grad)
+
+        save_params = {'f':f, 'grad_f':grad_f}
+        pde_utils.pickle_save(out_dir,save_file,save_params)
+
+        fname = os.path.join(out_dir,save_file)
+        load_params = pde_utils.pickle_load(fname)
+
+        coords = np.stack(np.meshgrid(np.linspace(0, 1, 20), np.linspace(0, 1, 20)), axis=-1)
+
+        f_save_eval = f.get_interpolator(coords.reshape(-1,2))
+        f_load_eval = load_params['f'].get_interpolator(coords.reshape(-1,2))
+        np.testing.assert_array_equal(f_load_eval,f_save_eval)
+        grad_f_save_eval = grad_f(coords)
+        grad_f_load_eval = load_params['grad_f'](coords)
+        np.testing.assert_array_equal(grad_f_save_eval,grad_f_load_eval)
 
 
 class TestPDEParabolicSolver(TestCase):
@@ -303,11 +334,16 @@ class TestInterpolators(unittest.TestCase):
 
         u_fenics = fc.interpolate(fc.Expression('x[0]+pow(x[0],3)/42+pow(x[1],2)', degree=1), fn_space)
         u_fenics_grad = pde_utils.fenics_grad(mesh, u_fenics)
-        grad_approxim = pde_utils.FenicsRectangleGradInterpolator(nx, ny, P0, P1, u_fenics)
+        grad_approxim = pde_utils.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_fenics_grad)
 
         X,Y =np.meshgrid(np.linspace(4.01,9.995,24),
                         np.linspace(2.01,22.995,13),indexing='ij')
         coords = np.stack((X,Y),axis=-1)
+        np.testing.assert_almost_equal(grad_approxim(coords) -
+                                       pde_utils.native_fenics_eval_vec(u_fenics_grad,coords),
+                                       0, decimal=6)
+
+        coords = np.stack((np.linspace(4.01,9.995,24),np.linspace(2.01,9.995,24)),axis=-1)
         np.testing.assert_almost_equal(grad_approxim(coords) -
                                        pde_utils.native_fenics_eval_vec(u_fenics_grad,coords),
                                        0, decimal=6)

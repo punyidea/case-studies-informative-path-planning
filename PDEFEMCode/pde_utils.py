@@ -7,6 +7,8 @@ import fenics as fc
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import RegularGridInterpolator
+import pickle,os
+
 
 ### To remove?
 def setup_function_space(n):
@@ -261,7 +263,7 @@ class FenicsRectangleLinearInterpolator():
     '''
 
     def __init__(self, nx, ny, P0, P1, u_fenics):
-        self.mesh = u_fenics.function_space().mesh()
+        #self.mesh = u_fenics.function_space().mesh()
         self.nx = nx
         self.ny = ny
         self.x0 = P0[0]
@@ -270,15 +272,16 @@ class FenicsRectangleLinearInterpolator():
         self.y1 = P1[1]
         self.hx = (P1[0] - P0[0]) / nx
         self.hy = (P1[1] - P0[1]) / ny
-        self.u = u_fenics
+        #self.u = u_fenics
 
-        self.pre_computations()
+        mesh = u_fenics.function_space().mesh()
+        self.pre_computations(u_fenics,mesh)
 
-    def pre_computations(self):
+    def pre_computations(self,u,mesh):
 
         # Nodes of the mesh and nodal values of u. For i=0,...,nx and j=0,...,ny, we have the l-th entry l=i+j(nx+1)
-        coords = self.mesh.coordinates()  # a 1+nx+ny(nx+1) x 2 matrix
-        nodal_vals = self.u.compute_vertex_values()
+        coords = mesh.coordinates()  # a 1+nx+ny(nx+1) x 2 matrix
+        nodal_vals = u.compute_vertex_values()
 
         # Some grids
         nx=self.nx
@@ -390,33 +393,38 @@ class FenicsRectangleLinearInterpolator():
     def get_scipy_interpolator(self):
         return RegularGridInterpolator((self.x, self.y), self.U)
 
-class FenicsRectangleGradInterpolator(FenicsRectangleLinearInterpolator):
+class FenicsRectangleVecInterpolator(FenicsRectangleLinearInterpolator):
     '''
-    Wraps a fenics function object so that it may be called by a function which supplies numpy arrays.
+    Wraps a fenics vector function object (gradient of function) so that it may be called by a
+    function which supplies numpy arrays.
     It is memory inefficient but runtime efficient.
     NOTE: DEPENDENT ON USING RECTANGULAR MESH WITH UP/RIGHT diagonals.
-    INITIALIZATION VARS
+    ASSUMES THE FUNCTION IS PIECEWISE CONSTANT ON MESH ELEMENTS,
+        like the gradient of a function on Lagrangian "hat" elements.
+
+    Variables.
     :param mesh: the fenics mesh object that we used.
     :param nx, ny: number of side rectangular cells in x and y directions
     :param P0: Minimum coordinates (x, then y) of the bounding box of the mesh
     :param P1: Maximum coordinates (x, then y) of the bounding box
-    :param u_fenics: the function to wrap in an interpolator, and eval. gradient.
-    :return: an obhect, that when called, computes the gradient of the provided function (a discontinuous mesh)
+    :param u_fenics: the  fenics Vector function (piecewise constant) to wrap in an interpolator.
+    :return: an object, that when called, computes the gradient of the provided function (a discontinuous mesh)
 
 
     Above, coords is shape (don't care x 2), to imitate shape of native fenics caller.
     #CALL VARS (coords). See __call__()
 
     Use case:
-        grad_fn     = FenicsRectangleGradInterpolator(nx, ny, P0, P1, u_fenics)
+        u_grad      = fenics_grad(mesh,u_fenics)
+        grad_fn     = FenicsRectangleGradInterpolator(nx, ny, P0, P1, u_grad)
         grad_eval   = grad_fn(coords)
     '''
 
-    def pre_computations(self):
+    def pre_computations(self,vec_u,mesh):
         nx,ny = self.nx,self.ny
         self.x = np.linspace(self.x0, self.x1, nx + 1)
         self.y = np.linspace(self.y0, self.y1, ny + 1)
-        grad_u = fenics_grad(self.mesh,self.u)
+        grad_u = vec_u
 
         #compute min coords of each cell
         low_cell_X,low_cell_Y = np.meshgrid(self.x[:-1],self.y[:-1],indexing='ij')
@@ -499,3 +507,22 @@ def fenics_grad(mesh, u_fenics):
     gradspace = fc.VectorFunctionSpace(mesh,'DG',0) #discontinuous lagrange.
     grad_fc = fc.project(fc.grad(u_fenics),gradspace)
     return grad_fc
+
+
+def pickle_save(out_path,fname,param_save,ext='.pkl'):
+    '''
+    Saves parameter
+    :param fname:
+    :param param_save: the Python object to save. Prefer that this is a dictionary with objects to save
+
+    '''
+    fname,_ = os.path.splitext(fname) # only keep root part
+    with open(os.path.join(out_path,fname + ext),'wb') as f_obj:
+        pickle.dump(param_save, f_obj)
+
+def pickle_load(fname,def_ext = '.pkl'):
+    fname,ext = os.path.splitext(fname)
+    if not ext:
+        ext = def_ext
+    with open(fname + ext,'rb') as f_obj:
+        return pickle.load(f_obj)

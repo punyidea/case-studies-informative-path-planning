@@ -18,7 +18,7 @@ LHS = pde_utils.elliptic_LHS
 RHS = pde_utils.elliptic_RHS
 rhs_expression_params = {   'gamma':np.array([.7,.5]),
                             'u_max' : 1,
-                            'r' : 1
+                            'r' : .05
                             }
 rhs_expression = pde_utils.gaussian_expression_2D
 # Note: the expression below is using the string format function to build it.
@@ -29,7 +29,9 @@ rhs_expression = pde_utils.gaussian_expression_2D
 nx, ny = 100,100
 P0, P1 = np.array([0,0]), np.array([1,1])
 
-
+# File save place
+out_file = 'elliptic_nx_100_unit_square_gaussian'
+out_folder = ''
 ## ------Begin main code.----------
 
 mesh, fn_space = pde_utils.setup_rectangular_function_space(nx,ny,P0,P1)
@@ -50,4 +52,10 @@ u_sol = pde_utils.solve_vp(fn_space,LHS_int,RHS_int)
 
 # Obtain solution functions, such that they work with numpy.
 f = pde_utils.FenicsRectangleLinearInterpolator(nx,ny,P0,P1,u_sol)
-grad_f = pde_utils.FenicsRectangleGradInterpolator(nx,ny,P0,P1,u_sol)
+u_grad = pde_utils.fenics_grad(mesh,u_sol)
+grad_f = pde_utils.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_grad)
+
+# import matplotlib.pyplot as plt
+# coords = np.stack(np.meshgrid(np.linspace(0,1,200),np.linspace(0,1,200)),axis = -1)
+# f_eval = f.get_interpolator(coords.reshape(-1,2))
+# plt.imshow(f_eval.reshape(200,200))
