@@ -258,8 +258,6 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
         correction = np.isclose(M, [self.x1, self.y1], 1e-10, 0).astype(int)
         type_def = np.clip(type_semidef + np.sum(correction * [-1, 1], axis=1), 0, 1)
 
-        print(type_def)
-
         # Interpolation (time dependent version)
         row_indices = np.array(It)[:, None]
         Px = self.Tx_glo[row_indices, index_def, type_def] * M[:, 0]
