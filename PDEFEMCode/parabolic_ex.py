@@ -26,7 +26,7 @@ f_expression = '3*(-1 + x[0] + x[1]) - 3*(-1 + x[0] + x[1])*cos(3*t) + (3*(3*pow
 # subdivided into two triangles by the down-left to up-right diagonal. In total there are 2 x 100 x 100 triangles.
 N = 10
 nx, ny = N, N
-P0, P1 = np.array([0, 0]), np.array([1, 1])  # top right, bottom left corner
+P0, P1 = np.array([10,-50]), np.array([11, 2])  # top right, bottom left corner
 
 # Parameters determining the time discretization. The simulation is conducted from time 0 to T, for a total of
 # time_steps uniformly distributed times.
@@ -86,4 +86,25 @@ for n in range(time_steps):
 fenics_list.insert(0, fc.interpolate(fc.Constant(0), fn_space))
 
 # Obtaining the interpolator for u
+# u = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, fenics_list, time_dependent=True, verbose=True)
 u = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, fenics_list, time_dependent=True, verbose=True)
+
+# #
+# P = np.array([[0, 0], [0, 1], [1, 0], [1, 1], [.25, 1], [1, .25], [.3, .7], [100, -.3]])
+# It = np.arange(0, len(fenics_list)).tolist()
+#
+# import time
+#
+# uq = fenics_list[3]
+# Q = np.array([10.2,.6])
+# ts=time.time()
+# for i in range(10000):
+#     uq(Q)
+# print('Fenics: ', time.time()-ts)
+#
+# ts=time.time()
+# for i in range(10000):
+#     u(Q,[3])
+# print('Mine: ', time.time()-ts)
+#
+# print(uq(Q)-u(Q,[3]))
