@@ -91,11 +91,9 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
         # faster later on
 
         if not self.time_dependent:
-            mesh = fem_data.function_space().mesh()
             u = fem_data
             self.T, self.Tx, self.Ty = self.pre_computations_mat(u) # some helping variables to speed up the interpolation later on
         else:
-            mesh = fem_data[0].function_space().mesh()  # the mesh doesn't change with time
             # Let's make a list of the helping tensors we built in the time independent case
             T_glo = []
             Tx_glo = []

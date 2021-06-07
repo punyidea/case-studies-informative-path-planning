@@ -158,8 +158,8 @@ class TestEllipticSolver(TestCase):
 class TestPDEParabolicSolver(TestCase):
     fc.set_log_active(False)  # disable messages of Fenics
 
-    LHS = staticmethod(pde_utils.general_LHS)
-    RHS = staticmethod(pde_utils.general_RHS)
+    LHS = staticmethod(pde_utils.heat_eq_LHS)
+    RHS = staticmethod(pde_utils.heat_eq_RHS)
 
     # Bottom right and top left corner of rectangular domain
     P0 = np.array([0, 0])
@@ -431,11 +431,11 @@ class TestInterpolators(unittest.TestCase):
 
         u_fenics = fc.interpolate(fc.Expression('x[0]+pow(x[1],2)', degree=1), fn_space)
         wrap = PDEFEMCode.Object_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, u_fenics)
-        my_interp = wrap.get_interpolator
+        #my_interp = wrap.get_interpolator
 
         P = np.array([6.41, 7.71])
 
-        np.testing.assert_almost_equal(my_interp(P) - u_fenics(P), 0, decimal=10)
+        np.testing.assert_almost_equal(wrap(P) - u_fenics(P), 0, decimal=10)
 
     def test_fenics_grad_interpolator_rectangle_right(self):
         nx = 5

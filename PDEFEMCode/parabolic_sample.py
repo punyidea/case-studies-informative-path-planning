@@ -4,6 +4,7 @@ initial condition.
 '''
 
 import PDEFEMCode.pde_utils as pde_utils
+import PDEFEMCode.Object_IO as pde_IO
 import fenics as fc
 import numpy as np
 
@@ -13,8 +14,8 @@ import numpy as np
 
 # Set up the LHS and RHS forms that are used.
 #   (see functions elliptic_LHS, elliptic_RHS for templates on how to change the PDE.)
-LHS = pde_utils.general_LHS
-RHS = pde_utils.general_RHS
+LHS = pde_utils.heat_eq_LHS
+RHS = pde_utils.heat_eq_RHS
 
 # Note: the expression below is using the string format function to build it.
 f_expression = '3*(-1 + x[0] + x[1]) - 3*(-1 + x[0] + x[1])*cos(3*t) + (3*(3*pow(x[0],2) - 2*pow(x[0],3) + (3 - 2*x[' \
@@ -30,7 +31,7 @@ P0, P1 = np.array([0, 0]), np.array([1, 1])  # top right, bottom left corner
 # Parameters determining the time discretization. The simulation is conducted from time 0 to T, for a total of
 # time_steps uniformly distributed times.
 T = 1.0  # final time
-time_steps = N ^ 2
+time_steps = N ** 2
 
 # ------Begin main code.----------
 
@@ -85,5 +86,4 @@ for n in range(time_steps):
 fenics_list.insert(0, fc.interpolate(fc.Constant(0), fn_space))
 
 # Obtaining the interpolator for u
-build = pde_utils.fenics_rectangle_function_wrap(nx, ny, P0, P1, fenics_list, time_dependent=True, verbose=True)
-u = build.get_interpolator()
+u = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, fenics_list, time_dependent=True, verbose=True)

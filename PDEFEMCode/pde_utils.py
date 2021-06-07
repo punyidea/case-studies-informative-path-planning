@@ -136,7 +136,7 @@ def elliptic_RHS(v_test, RHS_fn, **kwargs):
     '''
     return RHS_fn * v_test * fc.dx
 
-def general_LHS(u_trial, v_test, dt=1, alpha=1):
+def heat_eq_LHS(u_trial, v_test, dt=1, alpha=1):
     '''
     returns the LHS a(u_next, v) of the parabolic problem provided in the project handout:
     D_t u  - \alpha \Delta u = f, u(0)=0, homogeneous Neumann BC and initial conditions
@@ -160,7 +160,7 @@ def general_LHS(u_trial, v_test, dt=1, alpha=1):
 
     return (dt * alpha * fc.dot(fc.grad(u_trial), fc.grad(v_test)) + u_trial * v_test) * fc.dx
 
-def general_RHS(v_test, RHS_fn, dt=1, u_previous=0):
+def heat_eq_RHS(v_test, RHS_fn, dt=1, u_previous=0):
     '''
     returns the RHS L(v) = (u_previous + dt * f) * v * dx of the parabolic problem provided in the project handout:
     D_t u  - \alpha \Delta u = f, u(0)=0, homogeneous Neumann BC and initial conditions
