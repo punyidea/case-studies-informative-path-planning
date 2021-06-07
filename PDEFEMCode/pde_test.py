@@ -1,5 +1,7 @@
 import unittest
 from unittest import TestCase
+
+import PDEFEMCode.Object_IO
 import PDEFEMCode.pde_utils as pde_utils
 import PDEFEMCode.Object_IO as pde_IO
 import fenics as fc
@@ -27,7 +29,7 @@ class TestEllipticSolver(TestCase):
 
     @classmethod
     def setup_function_mesh_cls(cls,n):
-        cls.mesh,cls.fn_space = pde_utils.setup_function_space(n)
+        cls.mesh,cls.fn_space = pde_utils.setup_unitsquare_function_space(n)
         cls.LHS = staticmethod(pde_utils.elliptic_LHS)
         cls.RHS = staticmethod(pde_utils.elliptic_RHS)
 
@@ -36,7 +38,7 @@ class TestEllipticSolver(TestCase):
 
 
     def setup_function_mesh(self, n):
-        self.mesh, self.fn_space = pde_utils.setup_function_space(n)
+        self.mesh, self.fn_space = pde_utils.setup_unitsquare_function_space(n)
         self.LHS = pde_utils.elliptic_LHS
         self.RHS = pde_utils.elliptic_RHS
 
@@ -118,9 +120,9 @@ class TestEllipticSolver(TestCase):
 
         save_file = 'pde_test_sine_sol'
         out_dir = 'test-files'
-        f = pde_utils.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, u_sol)
+        f = PDEFEMCode.Object_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, u_sol)
         u_grad = pde_utils.fenics_grad(self.mesh, u_sol)
-        grad_f = pde_utils.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_grad)
+        grad_f = PDEFEMCode.Object_IO.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_grad)
 
         save_params = {'f':f, 'grad_f':grad_f}
         pde_IO.pickle_save(out_dir,save_file,save_params)
@@ -130,8 +132,8 @@ class TestEllipticSolver(TestCase):
 
         coords = np.stack(np.meshgrid(np.linspace(0, 1, 20), np.linspace(0, 1, 20)), axis=-1)
 
-        f_save_eval = f.get_interpolator(coords.reshape(-1,2))
-        f_load_eval = load_params['f'].get_interpolator(coords.reshape(-1,2))
+        f_save_eval = f(coords.reshape(-1,2))
+        f_load_eval = load_params['f'](coords.reshape(-1,2))
         np.testing.assert_array_equal(f_load_eval,f_save_eval)
         grad_f_save_eval = grad_f(coords)
         grad_f_load_eval = load_params['grad_f'](coords)
@@ -146,12 +148,12 @@ class TestEllipticSolver(TestCase):
 
         u_fenics = fc.interpolate(fc.Expression('pow(x[0],2)', degree=1), fn_space)
 
-        wrap = pde_utils.fenics_rectangle_function_wrap(nx, ny, P0, P1, u_fenics)
-        my_interp = wrap.get_interpolator()
+        wrap = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, u_fenics)
+        #my_interp = wrap.get_interpolator()
 
         P = np.array([1, 1/4])
 
-        print('Fenics: ', u_fenics(P), ', mine: ', my_interp(P))
+        print('Fenics: ', u_fenics(P), ', mine: ', wrap(P))
 
 class TestPDEParabolicSolver(TestCase):
     fc.set_log_active(False)  # disable messages of Fenics
@@ -378,7 +380,7 @@ class TestInterpolators(unittest.TestCase):
     '''
     def setUp(self):
         self.n = 50
-        self.mesh, self.fn_space = pde_utils.setup_function_space(50)
+        self.mesh, self.fn_space = pde_utils.setup_unitsquare_function_space(n)
 
     def test_fenics_interpolate_bilin(self):
 
@@ -403,7 +405,7 @@ class TestInterpolators(unittest.TestCase):
         list_fenics = [F1, F2, F3]
 
         # Note, for very 'high' functions, the difference between me and Fenics is O(1e-6), instead of O(1e-13)
-        wrap = pde_utils.fenics_rectangle_function_wrap(nx, ny, P0, P1, list_fenics, time_dependent=True,
+        wrap = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, time_dependent=True,
                                                         verbose=True)
         my_interp = wrap.get_interpolator()
         # my_interp_ref = wrap.get_scipy_interpolator()
@@ -428,7 +430,7 @@ class TestInterpolators(unittest.TestCase):
         mesh, fn_space = pde_utils.setup_rectangular_function_space(nx, ny, P0, P1)
 
         u_fenics = fc.interpolate(fc.Expression('x[0]+pow(x[1],2)', degree=1), fn_space)
-        wrap = pde_utils.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, u_fenics)
+        wrap = PDEFEMCode.Object_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, u_fenics)
         my_interp = wrap.get_interpolator
 
         P = np.array([6.41, 7.71])
@@ -444,18 +446,18 @@ class TestInterpolators(unittest.TestCase):
 
         u_fenics = fc.interpolate(fc.Expression('x[0]+pow(x[0],3)/42+pow(x[1],2)', degree=1), fn_space)
         u_fenics_grad = pde_utils.fenics_grad(mesh, u_fenics)
-        grad_approxim = pde_utils.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_fenics_grad)
+        grad_approxim = PDEFEMCode.Object_IO.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_fenics_grad)
 
         X,Y =np.meshgrid(np.linspace(4.01,9.995,24),
                         np.linspace(2.01,22.995,13),indexing='ij')
         coords = np.stack((X,Y),axis=-1)
         np.testing.assert_almost_equal(grad_approxim(coords) -
-                                       pde_utils.native_fenics_eval_vec(u_fenics_grad,coords),
+                                       PDEFEMCode.Object_IO.native_fenics_eval_vec(u_fenics_grad, coords),
                                        0, decimal=6)
 
         coords = np.stack((np.linspace(4.01,9.995,24),np.linspace(2.01,9.995,24)),axis=-1)
         np.testing.assert_almost_equal(grad_approxim(coords) -
-                                       pde_utils.native_fenics_eval_vec(u_fenics_grad,coords),
+                                       PDEFEMCode.Object_IO.native_fenics_eval_vec(u_fenics_grad, coords),
                                        0, decimal=6)
 
 
@@ -473,7 +475,7 @@ class TestFenicsFnWrap(unittest.TestCase):
         def test_xy(X,Y):
             ref_sol = affine_ref_f(X,Y)
             coords = np.stack((X,Y),axis=-1)
-            calc_sol = pde_utils.native_fenics_eval_scalar(affine_fc,coords)
+            calc_sol = PDEFEMCode.Object_IO.native_fenics_eval_scalar(affine_fc, coords)
             np.testing.assert_array_almost_equal(calc_sol,ref_sol)
 
         affine_ref_f = lambda X,Y: 1 + 3*X + 4*Y
@@ -499,7 +501,7 @@ class TestFenicsFnWrap(unittest.TestCase):
         def test_xy(X, Y):
             ref_sol = affine_grad_ref_f(X, Y)
             coords = np.stack((X, Y), axis=-1)
-            calc_sol = pde_utils.native_fenics_eval_vec(grad_affine_fc, coords)
+            calc_sol = PDEFEMCode.Object_IO.native_fenics_eval_vec(grad_affine_fc, coords)
             np.testing.assert_array_almost_equal(calc_sol, ref_sol)
 
         affine_grad_ref_f = lambda X, Y: np.ones_like(X)[..., np.newaxis] * np.array([3, 4])
@@ -523,7 +525,7 @@ class TestFenicsFnWrap(unittest.TestCase):
         def test_xy(X, Y):
             ref_sol = grad_hat_ref(X, Y)
             coords = np.stack((X, Y), axis=-1)
-            calc_sol = pde_utils.native_fenics_eval_vec(grad_hat_fc, coords)
+            calc_sol = PDEFEMCode.Object_IO.native_fenics_eval_vec(grad_hat_fc, coords)
             np.testing.assert_array_almost_equal(calc_sol, ref_sol)
 
         # hat function

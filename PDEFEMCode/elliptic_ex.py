@@ -3,7 +3,7 @@ This file is a  working example of an elliptic (time independent) PDE solver.
 
 
 '''
-
+import PDEFEMCode.Object_IO
 import PDEFEMCode.pde_utils as pde_utils
 import PDEFEMCode.Object_IO as pde_IO
 import fenics as fc
@@ -53,20 +53,20 @@ LHS_int, RHS_int = pde_utils.variational_formulation(
 u_sol = pde_utils.solve_vp(fn_space,LHS_int,RHS_int)
 
 # Obtain solution functions, such that they work with numpy.
-f = pde_utils.FenicsRectangleLinearInterpolator(nx,ny,P0,P1,u_sol)
+f = PDEFEMCode.Object_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, u_sol)
 u_grad = pde_utils.fenics_grad(mesh,u_sol)
-grad_f = pde_utils.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_grad)
+grad_f = PDEFEMCode.Object_IO.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_grad)
 
 param_save = {'f':f,'grad_f':grad_f}
 
 pde_IO.pickle_save(out_folder,out_file,param_save)
 
-# Code snippet to build intuition on the objects.
+# # Code snippet to build intuition on the objects.
 # import matplotlib.pyplot as plt
 # coords = np.stack(np.meshgrid(np.linspace(0,1,200),np.linspace(0,1,200)),axis = -1)
 # coords_rs = coords.reshape(-1,2)
 # f_eval = f.get_interpolator(coords_rs)
 # plt.imshow(f_eval.reshape(200,200))
-#
+# #
 # grad_f_eval = grad_f(coords) #grad_f(coords_rs) works fine too
 # plt.imshow(grad_f_eval[:,:,0])
