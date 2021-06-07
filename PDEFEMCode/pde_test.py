@@ -43,7 +43,7 @@ class TestEllipticSolver(TestCase):
         self.u_trial = fc.TrialFunction(self.fn_space)
         self.v_test = fc.TestFunction(self.fn_space)
 
-    def solve_obtain_error(self,RHS_fn,u_ref):
+    def solve_obtain_error(self, RHS_fn, u_ref):
         '''
         helper function for test cases below.
         '''
@@ -56,7 +56,7 @@ class TestEllipticSolver(TestCase):
 
         error_L2 = pde_utils.error_L2(u_ref, u_sol)
         error_LInf = pde_utils.error_LInf_piece_lin(u_ref, u_sol, self.mesh)
-        return error_L2,error_LInf, u_sol
+        return error_L2, error_LInf, u_sol
 
     def test_PDE_solve_constant(self):
         # Constant function is supplied.
@@ -68,23 +68,23 @@ class TestEllipticSolver(TestCase):
         error_L2, error_LInf,_ = self.solve_obtain_error(RHS_fn, u_ref)
         print('Constant function error_L2  =', error_L2)
         print('Constant function error_Linf =', error_LInf)
-        np.testing.assert_almost_equal(error_L2,0,decimal=10)
-        np.testing.assert_almost_equal(error_LInf,0,decimal=10)
+        np.testing.assert_almost_equal(error_L2, 0, decimal=10)
+        np.testing.assert_almost_equal(error_LInf, 0, decimal=10)
 
     def test_PDE_solve_sines(self):
         # Constant function is supplied.
         # The solver is expected to return the same constant.
 
         RHS_fn = fc.Expression('(2*pi*pi + 1)*sin(pi*x[0] + pi/2)*sin(pi*x[1]+pi/2)',
-            element = self.fn_space.ufl_element())
+                               element=self.fn_space.ufl_element())
         u_ref = fc.Expression('sin(pi*x[0] + pi/2)*sin(pi*x[1]+pi/2)',
-                element = self.fn_space.ufl_element())
+                              element=self.fn_space.ufl_element())
 
         error_L2, error_LInf,_ = self.solve_obtain_error(RHS_fn, u_ref)
         print('product sines function error_L2  =', error_L2)
         print('product sines function error_Linf =', error_LInf)
-        np.testing.assert_almost_equal(error_L2,0, decimal=3)
-        np.testing.assert_almost_equal(error_LInf,0, decimal=2)
+        np.testing.assert_almost_equal(error_L2, 0, decimal=3)
+        np.testing.assert_almost_equal(error_LInf, 0, decimal=2)
         # 5e-4 error reported in test MATLAB code.
 
     def testConvergenceOrder(self):
@@ -137,10 +137,24 @@ class TestEllipticSolver(TestCase):
         grad_f_load_eval = load_params['grad_f'](coords)
         np.testing.assert_array_equal(grad_f_save_eval,grad_f_load_eval)
 
+    def test_function_wrap_border(self):
+        nx = 2
+        ny = 2
+        P0 = np.array([0, 0])
+        P1 = np.array([1, 1])
+        mesh, fn_space = pde_utils.setup_rectangular_function_space(nx, ny, P0, P1)
+
+        u_fenics = fc.interpolate(fc.Expression('pow(x[0],2)', degree=1), fn_space)
+
+        wrap = pde_utils.fenics_rectangle_function_wrap(nx, ny, P0, P1, u_fenics)
+        my_interp = wrap.get_interpolator()
+
+        P = np.array([1, 1/4])
+
+        print('Fenics: ', u_fenics(P), ', mine: ', my_interp(P))
 
 class TestPDEParabolicSolver(TestCase):
-
-    fc.set_log_active(False)    # disable messages of Fenics
+    fc.set_log_active(False)  # disable messages of Fenics
 
     LHS = staticmethod(pde_utils.general_LHS)
     RHS = staticmethod(pde_utils.general_RHS)
@@ -151,16 +165,16 @@ class TestPDEParabolicSolver(TestCase):
 
     # Discretizations parameters
     T = 1.0  # final time
-    D = 2  # how many times do we want to do solve our problem ?
+    D = 4  # how many times do we want to do solve our problem ?
     initial_power = 7
-    final_power = 8
+    final_power = 10
     time_array = np.ceil(np.logspace(initial_power, final_power, D, base=2.0)).astype(
         int)  # vector of total time steps, per time we do a time discretization
     N_array = np.ceil(np.sqrt(time_array)).astype(int)  # vector of mesh sizes
 
-    err = 'uni'  # error to be outputted ('uni', 'L2', 'H1')
+    err = 'L2'  # error to be outputted ('uni', 'L2', 'H1')
 
-    def solve_obtain_error(self,RHS_fn,u_ref):
+    def solve_obtain_error(self, RHS_fn, u_ref):
         '''
         helper function for test cases below. It runs a series of tests with different discretizations, and it then
         returns the corresponding errors. The error is only computed at the final time of every time discretization.
@@ -194,13 +208,14 @@ class TestPDEParabolicSolver(TestCase):
 
             t = times[0]  # initial time
 
+            computed_error = False
+
             # Solving
             for n in range(curr_time_steps):
-
                 # Time update
-                t = times[n+1]
+                t = times[n + 1]
                 u_ref.t = t
-                RHS_fn.t = t     # NB. This change is also reflected inside LHS_int, RHS_int
+                RHS_fn.t = t  # NB. This change is also reflected inside LHS_int, RHS_int
 
                 # Solution at this time (no BC!) (NB. It's not very explicit that time changed, but it did above)
                 u_current = pde_utils.solve_vp(V, LHS_int, RHS_int)
@@ -208,30 +223,47 @@ class TestPDEParabolicSolver(TestCase):
                 # Update previous solution
                 u_previous.assign(u_current)
 
-            # Saving the error only at the last timestep
-            if self.err == 'uni':
-                error = pde_utils.error_LInf_piece_lin(u_ref, u_current, mesh)
-            elif self.err == 'L2':
-                error = fc.errornorm(u_ref, u_current, 'L2')
-            else:
-                error = fc.errornorm(u_ref, u_current, 'H1')
+                # Saving the error only at the middle timestep
+                if t > 0.5 and not computed_error:
+                    if self.err == 'uni':
+                        error = pde_utils.error_LInf_piece_lin(u_ref, u_current, mesh)
+                    elif self.err == 'L2':
+                        error = fc.errornorm(u_ref, u_current, 'L2')
+                    else:
+                        error = fc.errornorm(u_ref, u_current, 'H1')
 
-            print('Step = % .2f' % current_discr)
+                    err_tot[current_discr] = error
 
-            err_tot[current_discr] = error
+                    computed_error = True
+
+                print('Discretization: ', current_discr, '\nStep :', n)
 
         return err_tot
 
     def test_easy_polynomial(self):
 
         '''
-        Expected behaviour: the exact solution (up to machine precision) is computed
+        Expected behaviour: loglog(time_array, err_tot) and loglog(time_array, 1/time_array) should be parallel, in the
+        L2 norm. Moreover, the error shouldn't depend on the time discretization.
         '''
 
         RHS_fn = fc.Expression('3*pow(x[0],2) - 2*pow(x[0],3) + (3 - 2*x[1])*pow(x[1],2) + 12*t*(-1 + x[0] + x[1])',
-                       degree=2, t=0)
+                               degree=2, t=0)
         u_ref = fc.Expression('t*(3*pow(x[0],2) - 2*pow(x[0],3) + (3 - 2*x[1])*pow(x[1],2))', degree=2, t=0)
+
+        # Overwriting discretizations parameters
+        self.T = 1.0  # final time
+        self.D = 8  # how many times do we want to do solve our problem ?
+        self.initial_power = 7
+        self.final_power = 11
+        self.time_array = np.ceil(np.logspace(self.initial_power, self.final_power, self.D, base=2.0)).astype(
+            int)  # vector of total time steps, per time we do a time discretization
+        self.N_array = np.ceil(np.repeat([20], self.D)).astype(int)  # vector of mesh sizes
+
+        err = 'L2'  # error to be outputted ('uni', 'L2', 'H1')
+
         err_tot = self.solve_obtain_error(RHS_fn, u_ref)
+        np.savetxt('err_' + self.err + '_easy_polynomial.txt', err_tot)
         raise Exception('Error test not implemented')
 
     def test_constant(self):
@@ -276,6 +308,50 @@ class TestPDEParabolicSolver(TestCase):
         u_ref = fc.Expression(uexpr, degree=6, t=0)
 
         err_tot = self.solve_obtain_error(RHS_fn, u_ref)
+        np.savetxt('err_' + self.err + '_one_bump.txt', err_tot)
+
+        # results from matlab: -0.7810   -0.8272   -0.8354   -0.9781   -0.9205   -0.9978   -0.9757
+
+        raise Exception('Error test not implemented')
+    def test_moving_bumps(self):
+
+        '''
+        Expected behaviour: loglog(time_array, err_tot) and loglog(time_array, 1/time_array) should be parallel, in the
+        L2 norm
+        '''
+
+        fcase1 = '(exp(16)*(exp(-t + 1/(-0.0625 + pow(-0.5 + x[0] + cos(t)/4.,2) + pow(-0.5 + x[1] + sin(t)/4.,' \
+                 '2)))*(-1 + exp(t))*pow(cos((3*t)/2.),2) + exp(1/(-0.0625 + pow(-0.5 + x[0] - cos(t)/4.,' \
+                 '2) + pow(-0.5 + x[1] - sin(t)/4.,2)))*pow(sin((3*t)/2.),2)))/2. '
+        fcase2 = '(exp(16 + 1/(-0.0625 + pow(-0.5 + x[0] - cos(t)/4.,2) + pow(-0.5 + x[1] - sin(t)/4.,2)))*pow(sin((' \
+                 '3*t)/2.),2))/2. '
+        fcase3 = '(exp(16 - t + 1/(-0.0625 + pow(-0.5 + x[0] + cos(t)/4.,2) + pow(-0.5 + x[1] + sin(t)/4.,2)))*(-1 + ' \
+                 'exp(t))*pow(cos((3*t)/2.),2))/2. '
+        fcase4 = '0'
+
+        fcond11 = '2 + 4*pow(x[0],2) + 4*pow(x[1],2) + cos(t) + sin(t) < 2*(2*(x[0] + x[1]) + x[0]*cos(t) + x[1]*sin(' \
+                  't)) '
+        fcond12 = '2*(1 + 2*pow(x[0],2) + 2*pow(x[1],2) + x[0]*cos(t) + x[1]*sin(t)) < 4*(x[0] + x[1]) + cos(t) + ' \
+                  'sin(t) '
+
+        fcond1 = fcond11 + ' && ' + fcond12
+        fcond2 = '2 + 4*pow(x[0],2) + 4*pow(x[1],2) + cos(t) + sin(t) < 2*(2*(x[0] + x[1]) + x[0]*cos(t) + x[1]*sin(t))'
+        fcond3 = '2*(1 + 2*pow(x[0],2) + 2*pow(x[1],2) + x[0]*cos(t) + x[1]*sin(t)) < 4*(x[0] + x[1]) + cos(t) + sin(t)'
+
+        # fexpr = fcond1 + ' ? ' + fcase1 + ' : ' + fcase2
+        fexpr = fcond1 + ' ? ' + fcase1 + ' :  (' + fcond2 + ' ? ' + fcase2 + ' :  ( ' + fcond3 + ' ? ' + fcase3 + ' : ' + fcase4 + ' ) )'
+
+        RHS_fn = fc.Expression(fexpr, degree=6, t=0)
+
+        ucase1 = '(exp(16 + 1/(-0.0625 + pow(-0.5 + x[0] - cos(t)/4.,2) + pow(-0.5 + x[1] - sin(t)/4.,2)))*pow(sin((' \
+                 '3*t)/2.),2))/2. '
+        ucase2 = '0'
+        ucond1 = '2 + 4*pow(x[0],2) + 4*pow(x[1],2) + cos(t) + sin(t) < 2*(2*(x[0] + x[1]) + x[0]*cos(t) + x[1]*sin(t))'
+        uexpr = ucond1 + ' ? ' + ucase1 + ' : ' + ucase2
+        u_ref = fc.Expression(uexpr, degree=6, t=0)
+
+        err_tot = self.solve_obtain_error(RHS_fn, u_ref)
+        np.savetxt('err_L2.txt', err_tot)
         raise Exception('Error test not implemented')
 
     def test_polynomial(self):
@@ -289,9 +365,12 @@ class TestPDEParabolicSolver(TestCase):
             '3*(-1 + x[0] + x[1]) - 3*(-1 + x[0] + x[1])*cos(3*t) + (3*(3*pow(x[0],2) - 2*pow(x[0],3) + (3 - '
             '2*x[1])*pow(x[1],2))*sin(3*t))/4', degree=2, t=0)
         u_ref = fc.Expression('((-3*pow(x[0],2) + 2*pow(x[0],3) + pow(x[1],2)*(-3 + 2*x[1]))*(-1 + cos(3*t)))/4',
-                            degree=2, t=0)
+                              degree=2, t=0)
 
         err_tot = self.solve_obtain_error(RHS_fn, u_ref)
+        print(err_tot)
+        # np.savetxt('err_'+self.err+'_polynomial.txt',err_tot )
+        # results from matlab: -0.8565   -1.0323   -0.9597   -1.0363   -0.9617   -1.0122   -0.9873
         raise Exception('Error test not implemented')
 class TestInterpolators(unittest.TestCase):
     '''
@@ -310,6 +389,36 @@ class TestInterpolators(unittest.TestCase):
         eval_ref = 1 + 3*X + 4*Y
         eval_wrap = affine_np(np.stack((X,Y),axis=-1))
         np.testing.assert_almost_equal(eval_ref,eval_wrap)
+
+    def test_function_wrap(self):
+        nx = 5
+        ny = 6
+        P0 = np.array([4, 1])
+        P1 = np.array([10, 23])
+        mesh, fn_space = pde_utils.setup_rectangular_function_space(nx, ny, P0, P1)
+
+        F1 = fc.interpolate(fc.Expression('x[0]+pow(x[1],2)', degree=1), fn_space)
+        F2 = fc.interpolate(fc.Expression('3*x[0]+pow(x[1],2)+cos(100*x[0])', degree=1), fn_space)
+        F3 = fc.interpolate(fc.Expression('x[0]', degree=1), fn_space)
+        list_fenics = [F1, F2, F3]
+
+        # Note, for very 'high' functions, the difference between me and Fenics is O(1e-6), instead of O(1e-13)
+        wrap = pde_utils.fenics_rectangle_function_wrap(nx, ny, P0, P1, list_fenics, time_dependent=True,
+                                                        verbose=True)
+        my_interp = wrap.get_interpolator()
+        # my_interp_ref = wrap.get_scipy_interpolator()
+
+        P = np.array([[5.1, 22], [4, 18], [8, 23], [9.5, 1.1], [10, 2.5]])
+        not_mine = np.zeros(len(list_fenics))
+        for i in range(np.shape(P)[0]):
+            mine = my_interp(P[i, :], [0, 1, 2])
+
+            for j in range(len(list_fenics)):
+                not_mine[j] = list_fenics[j](P[i, :])
+
+            delta = mine - not_mine
+            print(delta)
+            np.testing.assert_almost_equal(np.max(np.abs(delta)), 0, decimal=8)
 
     def test_fenics_lin_interpolator_rectangle_right(self):
         nx = 5

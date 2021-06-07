@@ -10,8 +10,8 @@ from scipy.interpolate import RegularGridInterpolator
 import pickle,os
 
 
-### To remove?
-def setup_function_space(n):
+
+def setup_unitsquare_function_space(n):
     """
     Sets up the function space on the unit square, with n subdivisions.
     This includes preparing the mesh and basis functions on the mesh.
@@ -19,7 +19,7 @@ def setup_function_space(n):
     for documentation on rectangular meshes.
 
     :return:
-        - mesh, a fenics mesh on the unit square. 
+        - mesh, a fenics mesh on the unit square.
             The mesh is a unit square mesh with n sub-squares.
             Triangular subdivisions are obtained by going diagonally up and right,
             see UnitSquareMesh function documentation.
@@ -48,7 +48,7 @@ def setup_rectangular_function_space(nx, ny, P0, P1):
     """
     # Create mesh and define function space
     mesh = fc.RectangleMesh(fc.Point(P0[0], P0[1]), fc.Point(P1[0], P1[1]), nx, ny)
-    fn_space = fc.FunctionSpace(mesh, 'P', 1)
+    fn_space = fc.FunctionSpace(mesh, 'Lagrange', 1)
     return mesh, fn_space
 
 
@@ -113,6 +113,7 @@ def solve_vp(Fn_space, LHS_int, RHS_int, bc=None):
     fc.solve(LHS_int == RHS_int, u_sol, bcs=bc)
     return u_sol
 
+
 ## BEGIN SAMPLE LHS and RHS functions.
 def elliptic_LHS(u_trial, v_test, **kwargs):
     '''
@@ -141,7 +142,7 @@ def elliptic_RHS(v_test, RHS_fn, **kwargs):
 def general_LHS(u_trial, v_test, dt=1, alpha=1):
     '''
     returns the LHS a(u_next, v) of the parabolic problem provided in the project handout:
-    D_t u  - \alpha \Delta u = f, u(0)=0, Neumann BC
+    D_t u  - \alpha \Delta u = f, u(0)=0, homogeneous Neumann BC and initial conditions
     as discretized by means of the implicit Euler's method =>
     a(u_next, v) = \int u_trial * v dx + \int dt * alpha * dot(grad(u_trial), grad(v)) dx
     L(v) = (u_previous + dt * f) * v * dx
@@ -165,7 +166,7 @@ def general_LHS(u_trial, v_test, dt=1, alpha=1):
 def general_RHS(v_test, RHS_fn, dt=1, u_previous=0):
     '''
     returns the RHS L(v) = (u_previous + dt * f) * v * dx of the parabolic problem provided in the project handout:
-    D_t u  - \alpha \Delta u = f, u(0)=0, Neumann BC
+    D_t u  - \alpha \Delta u = f, u(0)=0, homogeneous Neumann BC and initial conditions
     as discretized by means of the implicit Euler's method =>
     a (u_next, v) = \int u_trial * v dx + \int dt * alpha * dot(grad(u_trial), grad(v)) dx
     L (v) = (u_previous + dt * f) * v * dx
@@ -184,6 +185,7 @@ def general_RHS(v_test, RHS_fn, dt=1, u_previous=0):
     '''
 
     return (dt * RHS_fn + u_previous) * v_test * fc.dx
+
 
 
 def gaussian_expression_2D(gamma,u_max,r):
@@ -251,18 +253,30 @@ def fenics_unit_square_function_wrap(mesh, n, u_fenics):
 
 class FenicsRectangleLinearInterpolator():
     '''
-    Wraps a fenics function object so that it may be called by a function which supplies numpy arrays.
-    It is memory inefficient but runtime efficient: by means of linear interpolation, the query value is computed in
-    8 operations
-    :param mesh: the fenics mesh object that we used.
+    Given the fenics solution to the time (in)dependent PDE, it wraps a function object around it. This new interolator
+    function can be later called without the need of having fenics installed.
+    To obtain the interpolator, the user must run something like:
+    wrap = pde_utils.fenics_rectangle_function_wrap(nx, ny, P0, P1, u_fenics)
+    my_interp = wrap.get_interpolator()
+    my_interp now accepts an Nx2 numpy array of query points, where the solution of the pde is evaluated. If the
+    solution is time dependent, a time array can also be specified: the solution will be interpolated at the query
+    points for every desired time instance. The time array is an order list of indices (0 indicates the initial
+    time, 1 the time immediately after and so on).
+
+    :param mesh: the rectangular fenics mesh object that we used. It is supposed to be composed of uniform rectangular
+    cells, divided into triangles by the down-left to up-right diagonal
+    :param P0, P1: two 2d numpy arrays, specifying upper right and lower left corners of the rectangular domain
     :param nx, ny: number of side rectangular cells in x and y directions
-    :param
-    :param u_fenics: the function to wrap in an interpolator
-    :return: a function, which when evaluated,
-        gives the function evaluated at coordinates.
+    :param time_dependent. If True, we return the interpolator for the parabolic equation, for the elliptic otherwise.
+        It's False by default.
+    :param fem_data: the fenics function to wrap in the interpolator if time_dependent = False,
+        the ordered list of all such functions (as time varies), if time_dependent = True
+    :param verbose: if True, it displays the building status of the time dependent interpolator
+    :return: a function, which when evaluated, gives the function evaluated at the desired space-time coordinates.
     '''
 
-    def __init__(self, nx, ny, P0, P1, u_fenics):
+    def __init__(self, nx, ny, P0, P1, fem_data, time_dependent=False, verbose=False):
+        # Some geometric initializations
         #self.mesh = u_fenics.function_space().mesh()
         self.nx = nx
         self.ny = ny
@@ -274,20 +288,57 @@ class FenicsRectangleLinearInterpolator():
         self.hy = (P1[1] - P0[1]) / ny
         #self.u = u_fenics
 
-        mesh = u_fenics.function_space().mesh()
-        self.pre_computations(u_fenics,mesh)
+        # Other temporary variables for the interpolation process
+        self.D = self.hx * self.hy
+        self.slope = self.hy / self.hx
 
-    def pre_computations(self,u,mesh):
+        # Used to handle query points outside the domain
+        self.pad_v = np.array([self.nx - 1, self.ny - 1])
+        self.zero = np.array([0, 0])
 
-        # Nodes of the mesh and nodal values of u. For i=0,...,nx and j=0,...,ny, we have the l-th entry l=i+j(nx+1)
-        coords = mesh.coordinates()  # a 1+nx+ny(nx+1) x 2 matrix
+        # To differentiate which interpolator to return. We now generate helping variables that will make interpolation
+        # faster later on
+        self.time_dependent = time_dependent
+        if not time_dependent:
+            mesh = fem_data.function_space().mesh()
+            u = fem_data
+            self.T, self.Tx, self.Ty = self.pre_computations(u) # some helping variables to speed up the interpolation later on
+        else:
+            mesh = fem_data[0].function_space().mesh()  # the mesh doesn't change with time
+            # Let's make a list of the helping tensors we built in the time independent case
+            T_glo = []
+            Tx_glo = []
+            Ty_glo = []
+            for i in range(len(fem_data)):
+
+                u = fem_data[i]
+                T, Tx, Ty = self.pre_computations(u)
+
+                T_glo.append(T)
+                Tx_glo.append(Tx)
+                Ty_glo.append(Ty)
+
+                if verbose:
+                    print('Building function interpolator, ', str(np.floor(100 * (i + 1) / len(fem_data))), ' % done.')
+
+            self.T_glo = np.array(T_glo)
+            self.Tx_glo = np.array(Tx_glo)
+            self.Ty_glo = np.array(Ty_glo)
+
+    def pre_computations(self, u):
+        '''
+        It receives a fenics (non time dependent) function and computes some related helping variables to speed up
+        the interpolation process later on.
+        These are T and Tx, Ty.
+        For detailed functioning, refer to the pdf of the tecnical documentation.
+        '''
+
+        # Nodal values of u. For i=0,...,nx and j=0,...,ny, we have the l-th entry l=i+j(nx+1)
         nodal_vals = u.compute_vertex_values()
 
-        # Some grids
-        nx=self.nx
-        ny=self.ny
-        self.x = np.linspace(self.x0, self.x1, nx + 1)
-        self.y = np.linspace(self.y0, self.y1, ny + 1)
+        # For not writing self every time
+        nx = self.nx
+        ny = self.ny
 
         # For triangles dw (dw = facing down)
         #    3
@@ -295,7 +346,7 @@ class FenicsRectangleLinearInterpolator():
         n_1_dw = 0  # Counter for 1 nodes of dw triangles
         n_2_dw = 0
         n_3_dw = 0
-        u_1_dw = np.zeros(1 + nx - 1 + (ny - 1) * (nx - 1 + 1))  # Nodal 1 vadwes of u for dw triangles
+        u_1_dw = np.zeros(1 + nx - 1 + (ny - 1) * (nx - 1 + 1))  # Nodal 1 values of u for dw triangles
         u_2_dw = np.zeros(1 + nx - 1 + (ny - 1) * (nx - 1 + 1))
         u_3_dw = np.zeros(1 + nx - 1 + (ny - 1) * (nx - 1 + 1))
         xv_dw = np.zeros(1 + nx - 1 + (ny - 1) * (nx - 1 + 1))  # Vertex coordinates for dw triangles
@@ -304,7 +355,6 @@ class FenicsRectangleLinearInterpolator():
         # For triangles up (up = facing up)
         #  1 2
         #  3
-
         n_1_up = 0  # Counter for 1 nodes of up triangles
         n_2_up = 0
         n_3_up = 0
@@ -313,15 +363,14 @@ class FenicsRectangleLinearInterpolator():
         u_3_up = np.zeros(1 + nx - 1 + (ny - 1) * (nx - 1 + 1))
         xv_up = np.zeros(1 + nx - 1 + (ny - 1) * (nx - 1 + 1))  # Vertex coordinates for up triangles
         yv_up = np.zeros(1 + nx - 1 + (ny - 1) * (nx - 1 + 1))
-        self.U = np.zeros((nx + 1, ny + 1))  # array of U values
+        # self.U = np.zeros((nx + 1, ny + 1))  # array of u values used to get the scipy interpolator, for debug
 
+        # This will build different arrays useful for computing T, Txy. See the technical documentation for details
         for j in range(ny + 1):  # Pythonics for j=0...ny
             for i in range(nx + 1):  # Pythonics for i=0...nx
 
-                # print([self.x0+i*self.hx, self.y0+j*self.hy], coords[i + j * (nx + 1)], nodal_vals[i + j * (nx + 1)], self.u(coords[i + j * (nx + 1)]))
-
                 u_ij = nodal_vals[i + j * (nx + 1)]
-                self.U[i, j] = u_ij
+                # self.U[i, j] = u_ij # used to get the scipy interpolator, for debug
 
                 if i > 0 and j < ny:  # Python wants and !!
                     u_1_dw[n_1_dw] = u_ij
@@ -347,7 +396,6 @@ class FenicsRectangleLinearInterpolator():
         # For dw triangles like
         #    3
         #  2 1
-
         T_dw = self.hx * self.hy * u_2_dw - self.hy * u_1_dw * xv_dw + self.hy * u_2_dw * xv_dw + self.hx * u_1_dw * yv_dw - self.hx * u_3_dw * yv_dw
         Tx_dw = self.hy * u_1_dw - self.hy * u_2_dw
         Ty_dw = - self.hx * u_1_dw + self.hx * u_3_dw
@@ -355,43 +403,83 @@ class FenicsRectangleLinearInterpolator():
         # For triangles up (up = facing up)
         #  1 2
         #  3
-
         T_up = self.hx * self.hy * u_3_up + self.hy * u_1_up * xv_up - self.hy * u_2_up * xv_up - self.hx * u_1_up * yv_up + self.hx * u_3_up * yv_up
         Tx_up = - self.hy * u_1_up + self.hy * u_2_up
         Ty_up = self.hx * u_1_up - self.hx * u_3_up
 
-        # All together
-        self.T = np.array([T_dw, T_up]).T
-        self.Tx = np.array([Tx_dw, Tx_up]).T
-        self.Ty = np.array([Ty_dw, Ty_up]).T
+        # All together: computing T, Txy
+        T = np.array([T_dw, T_up]).T
+        Tx = np.array([Tx_dw, Tx_up]).T
+        Ty = np.array([Ty_dw, Ty_up]).T
 
-        self.D = self.hx * self.hy
+        return T, Tx, Ty
 
-        self.slope = self.hy / self.hx
-
-    def get_interpolator(self, M):
+    def get_interpolator_elliptic(self, M):
         '''
-        It takes in a matrix of N points (Nx2)
-        For every point it computes the triangle type and triangle index
-        It returns an Nx2 matrix, the first column describes the index, the second is 0 for dw triangle, 1 for up triangles
+        It takes in a numpy 2d array of N points (Nx2) (or also a single 2D point, a numpy 1d array)
+        It returns the interpolated values at the query points.
+        For details about the functioning refer to the technical documentation.
         '''
 
+        # If a single query point
         if len(np.shape(M)) == 1:
             M = np.array([M])
 
+        # Getting the index of the rectangular cell and the type of the triangle, while also ensuring the query index
+        # is admissible (and at the same time: being able to input any point we want)
         index_raw, type_raw = np.divmod(M - [self.x0, self.y0], [self.hx, self.hy])
+        index_raw = np.maximum(np.minimum(index_raw, self.pad_v), self.zero)
         index_def = np.squeeze((index_raw[:, 0] + index_raw[:, 1] * self.nx)).astype(int)
         type_def = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
+
+        # Boundary term correction
+        # If index_def_x == nx, add 1 to type_def_x. Do likewise for the y component
 
         # Interpolation
         Px = self.Tx[index_def, type_def] * M[:, 0]
         Py = self.Ty[index_def, type_def] * M[:, 1]
         N = self.T[index_def, type_def] + Px + Py
 
-        return N / self.D
+        return np.squeeze(N / self.D)
 
-    def get_scipy_interpolator(self):
-        return RegularGridInterpolator((self.x, self.y), self.U)
+    def get_interpolator_parabolic(self, M, It):
+        '''
+        It takes in a matrix of N points (Nx2) and an array of time indices (Tx1), which is a subset of 0:len(fem_data)
+        It returns a matrix that is NxT (N spatial interpolations at every time)
+        '''
+
+        # If a single query point / single time
+        if len(np.shape(M)) == 1:
+            M = np.array([M])
+        if not type(It) == list:
+            It=[It]
+
+        # Getting the index of the rectangular cell and the type of the triangle, while also ensuring the query index
+        # is admissible (and at the same time: being able to input any point we want)
+        index_raw, type_raw = np.divmod(M - [self.x0, self.y0], [self.hx, self.hy])
+        index_raw = np.maximum(np.minimum(index_raw, self.pad_v), self.zero)
+        index_def = np.squeeze((index_raw[:, 0] + index_raw[:, 1] * self.nx)).astype(int)
+        type_def = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
+
+        # Interpolation (time dependent version)
+        row_indices = np.array(It)[:, None]
+        Px = self.Tx_glo[row_indices, index_def, type_def] * M[:, 0]
+        Py = self.Ty_glo[row_indices, index_def, type_def] * M[:, 1]
+        N = self.T_glo[row_indices, index_def, type_def] + Px + Py
+
+        return np.squeeze(N / self.D)
+
+    def get_interpolator(self):
+        '''
+        Returns the interpolator function, either time dependent or independent.
+        '''
+        if not self.time_dependent:
+            return self.get_interpolator_elliptic
+        else:
+            return self.get_interpolator_parabolic
+
+    # def get_scipy_interpolator(self):
+    #    return RegularGridInterpolator((self.x, self.y), self.U)
 
 class FenicsRectangleVecInterpolator(FenicsRectangleLinearInterpolator):
     '''
@@ -420,7 +508,7 @@ class FenicsRectangleVecInterpolator(FenicsRectangleLinearInterpolator):
         grad_eval   = grad_fn(coords)
     '''
 
-    def pre_computations(self,vec_u,mesh):
+    def pre_computations(self,vec_u):
         nx,ny = self.nx,self.ny
         self.x = np.linspace(self.x0, self.x1, nx + 1)
         self.y = np.linspace(self.y0, self.y1, ny + 1)
