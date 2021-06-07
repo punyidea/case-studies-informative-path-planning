@@ -315,6 +315,7 @@ class TestPDEParabolicSolver(TestCase):
         # results from matlab: -0.7810   -0.8272   -0.8354   -0.9781   -0.9205   -0.9978   -0.9757
 
         raise Exception('Error test not implemented')
+
     def test_moving_bumps(self):
 
         '''
@@ -374,6 +375,7 @@ class TestPDEParabolicSolver(TestCase):
         # np.savetxt('err_'+self.err+'_polynomial.txt',err_tot )
         # results from matlab: -0.8565   -1.0323   -0.9597   -1.0363   -0.9617   -1.0122   -0.9873
         raise Exception('Error test not implemented')
+
 class TestInterpolators(unittest.TestCase):
     '''
     Tests the non-native interpolators.
