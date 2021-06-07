@@ -225,7 +225,7 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
         Tx_up = - self.hy * u_1_up + self.hy * u_2_up
         Ty_up = self.hx * u_1_up - self.hx * u_3_up
 
-        # All together: computing T, Txy
+        # All together: computing T, Tx, Ty
         T = np.array([T_dw, T_up]).T
         Tx = np.array([Tx_dw, Tx_up]).T
         Ty = np.array([Ty_dw, Ty_up]).T
