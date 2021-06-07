@@ -24,7 +24,7 @@ f_expression = '3*(-1 + x[0] + x[1]) - 3*(-1 + x[0] + x[1])*cos(3*t) + (3*(3*pow
 # Parameters determining the mesh.
 # This is a triangular mesh on the unit square, where we have [0,1]^2 divided into 100 x 100 sub-squares, each one
 # subdivided into two triangles by the down-left to up-right diagonal. In total there are 2 x 100 x 100 triangles.
-N = 40
+N = 10
 nx, ny = N, N
 P0, P1 = np.array([0, 0]), np.array([1, 1])  # top right, bottom left corner
 
@@ -87,3 +87,8 @@ fenics_list.insert(0, fc.interpolate(fc.Constant(0), fn_space))
 
 # Obtaining the interpolator for u
 u = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, fenics_list, time_dependent=True, verbose=True)
+
+P = np.array([[0, 0], [0, 1], [1, 0], [1, 1], [.25, 1], [1, .25], [.3, .7], [100, -.3]])
+It = np.arange(0, len(fenics_list))
+
+print(u(P, It))

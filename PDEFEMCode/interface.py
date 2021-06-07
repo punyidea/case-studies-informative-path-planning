@@ -1,4 +1,4 @@
-import os,pickle
+import os, pickle
 
 import numpy as np
 
@@ -10,28 +10,31 @@ def pickle_save(out_path, fname, obj_save, ext='.pkl'):
     :param obj_save: the Python object to save. Prefer that this is a dictionary with objects to save.
 
     '''
-    fname,_ = os.path.splitext(fname) # only keep root part
-    with open(os.path.join(out_path,fname + ext),'wb') as f_obj:
+    fname, _ = os.path.splitext(fname)  # only keep root part
+    with open(os.path.join(out_path, fname + ext), 'wb') as f_obj:
         pickle.dump(obj_save, f_obj)
 
-def pickle_load(fname,def_ext = '.pkl'):
+
+def pickle_load(fname, def_ext='.pkl'):
     '''
 
     :param fname: full path of the file to load using pickle.
     :param def_ext: default file extension used to save files.
     :return: the Python object. This should be a dictionary if it has more than one parameter.
     '''
-    fname,ext = os.path.splitext(fname)
+    fname, ext = os.path.splitext(fname)
     if not ext:
         ext = def_ext
-    with open(fname + ext,'rb') as f_obj:
+    with open(fname + ext, 'rb') as f_obj:
         return pickle.load(f_obj)
+
 
 class RectangleInterpolator():
     '''
     This is an abstract class that stores common parameters of the gradient interpolator.
     '''
-    def __init__(self,nx, ny, P0, P1, fem_data, time_dependent=False, verbose=False):
+
+    def __init__(self, nx, ny, P0, P1, fem_data, time_dependent=False, verbose=False):
         # Some geometric initializations
         pass
         self.nx = nx
@@ -52,9 +55,10 @@ class RectangleInterpolator():
     def pre_computations(self):
         pass
 
-
-    def __call__(self,coords):
+    def __call__(self, coords):
         raise Exception('Abstract class. No call method implemented.')
+
+
 class FenicsRectangleLinearInterpolator(RectangleInterpolator):
     '''
     Given the fenics solution to the time (in)dependent PDE, it wraps a function object around it. This new interolator
@@ -81,7 +85,6 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
 
     def pre_computations(self, fem_data):
 
-
         # Other temporary variables for the interpolation process
         self.D = self.hx * self.hy
         self.slope = self.hy / self.hx
@@ -95,7 +98,8 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
 
         if not self.time_dependent:
             u = fem_data
-            self.T, self.Tx, self.Ty = self.pre_computations_mat(u) # some helping variables to speed up the interpolation later on
+            self.T, self.Tx, self.Ty = self.pre_computations_mat(
+                u)  # some helping variables to speed up the interpolation later on
         else:
             # Let's make a list of the helping tensors we built in the time independent case
             T_glo = []
@@ -222,10 +226,9 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
         index_raw, type_raw = np.divmod(M - [self.x0, self.y0], [self.hx, self.hy])
         index_raw = np.clip(index_raw, self.zero, self.pad_v)
         index_def = np.squeeze((index_raw[:, 0] + index_raw[:, 1] * self.nx)).astype(int)
-        type_def = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
-
-        # TODO: (Leo) boundary term correction
-        # If index_def_x == nx, add 1 to type_def_x. Do likewise for the y component
+        type_semidef = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
+        correction = np.isclose(M, [self.x1, self.y1], 1e-10, 0).astype(int)
+        type_def = np.clip(type_semidef + np.sum(correction * [-1, 1], axis=1), 0, 1)
 
         # Interpolation
         Px = self.Tx[index_def, type_def] * M[:, 0]
@@ -244,16 +247,18 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
         if len(np.shape(M)) == 1:
             M = np.array([M])
         if not type(It) == list:
-            It=[It]
+            It = [It]
 
         # Getting the index of the rectangular cell and the type of the triangle, while also ensuring the query index
         # is admissible (and at the same time: being able to input any point we want)
         index_raw, type_raw = np.divmod(M - [self.x0, self.y0], [self.hx, self.hy])
         index_raw = np.clip(index_raw, self.zero, self.pad_v)
         index_def = np.squeeze((index_raw[:, 0] + index_raw[:, 1] * self.nx)).astype(int)
-        type_def = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
+        type_semidef = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
+        correction = np.isclose(M, [self.x1, self.y1], 1e-10, 0).astype(int)
+        type_def = np.clip(type_semidef + np.sum(correction * [-1, 1], axis=1), 0, 1)
 
-        # TODO: (Leo) boundary term correction
+        print(type_def)
 
         # Interpolation (time dependent version)
         row_indices = np.array(It)[:, None]
@@ -263,14 +268,14 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
 
         return np.squeeze(N / self.D)
 
-    def __call__(self,*args,**kwargs):
+    def __call__(self, *args, **kwargs):
         '''
         Returns the interpolator function, either time dependent or independent.
         '''
         if not self.time_dependent:
-            return self.get_interpolator_elliptic(*args,**kwargs)
+            return self.get_interpolator_elliptic(*args, **kwargs)
         else:
-            return self.get_interpolator_parabolic(*args,**kwargs)
+            return self.get_interpolator_parabolic(*args, **kwargs)
 
     # def get_scipy_interpolator(self):
     #    return RegularGridInterpolator((self.x, self.y), self.U)
@@ -304,42 +309,42 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
         grad_eval   = grad_fn(coords)
     '''
 
-    def pre_computations(self,vec_u):
-        nx,ny = self.nx,self.ny
+    def pre_computations(self, vec_u):
+        nx, ny = self.nx, self.ny
         self.x = np.linspace(self.x0, self.x1, nx + 1)
         self.y = np.linspace(self.y0, self.y1, ny + 1)
         grad_u = vec_u
 
-        #compute min coords of each cell
-        low_cell_X,low_cell_Y = np.meshgrid(self.x[:-1],self.y[:-1],indexing='ij')
-        low_cell_coords = np.stack((low_cell_X,low_cell_Y),axis=-1)
+        # compute min coords of each cell
+        low_cell_X, low_cell_Y = np.meshgrid(self.x[:-1], self.y[:-1], indexing='ij')
+        low_cell_coords = np.stack((low_cell_X, low_cell_Y), axis=-1)
 
         # upper triangle: ("top left" of each cell)
         # Lower triangle: ("bottom right" of each cell)
         # example of UL:
         #  1 2
         #  3
-        BR_coords = low_cell_coords + [.5*self.hx,.25*self.hy]
-        UL_coords = low_cell_coords + [.25*self.hx,.5*self.hy]
-        T_coords = np.stack((BR_coords,UL_coords), axis=-2)
+        BR_coords = low_cell_coords + [.5 * self.hx, .25 * self.hy]
+        UL_coords = low_cell_coords + [.25 * self.hx, .5 * self.hy]
+        T_coords = np.stack((BR_coords, UL_coords), axis=-2)
 
-        self.T_grads = native_fenics_eval_vec(grad_u,T_coords)
+        self.T_grads = native_fenics_eval_vec(grad_u, T_coords)
 
-    def __call__(self,coords):
+    def __call__(self, coords):
         '''
         TODO: (Victor) add time dependent solution, with a simple round.
         When called, returns the gradient of the point on the mesh.
         :param coords: coordinates on which we'd like to shape (don't care) by 2
         :return: gradient of the interpolator, shape  (coords.shape[:-1} x2)
         '''
-        coords_shape =coords.shape
-        coords_rs = np.reshape(coords,(-1,coords_shape[-1]))
+        coords_shape = coords.shape
+        coords_rs = np.reshape(coords, (-1, coords_shape[-1]))
 
-        index_float = (coords_rs - [self.x0, self.y0])/[self.hx,self.hy]
+        index_float = (coords_rs - [self.x0, self.y0]) / [self.hx, self.hy]
         eps = 1e-1
-        index_float = np.clip(index_float,[0,0],[self.nx-eps,self.ny-eps])
-        #assert((index_float<=[self.nx,self.ny]).all())# are we in bounds?
-        #assert((index_float>=0).all()) #are we in bounds?
+        index_float = np.clip(index_float, [0, 0], [self.nx - eps, self.ny - eps])
+        # assert((index_float<=[self.nx,self.ny]).all())# are we in bounds?
+        # assert((index_float>=0).all()) #are we in bounds?
 
         index_int, frac_index = np.divmod(index_float, 1)
         index_int = index_int.astype(int)
@@ -347,7 +352,7 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
         # if type_def is 0, it is a BR_triangle
         type_def = np.squeeze(frac_index[:, 0] < frac_index[:, 1]).astype(int)  # If 0, dw triangle
 
-        out_arr = self.T_grads[index_int[:,0],index_int[:,1],type_def,:]
+        out_arr = self.T_grads[index_int[:, 0], index_int[:, 1], type_def, :]
         out_shape = coords_shape[:-1] + (2,)
         return out_arr.reshape(out_shape)
 
