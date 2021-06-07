@@ -220,11 +220,11 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
         # Getting the index of the rectangular cell and the type of the triangle, while also ensuring the query index
         # is admissible (and at the same time: being able to input any point we want)
         index_raw, type_raw = np.divmod(M - [self.x0, self.y0], [self.hx, self.hy])
-        index_raw = np.maximum(np.minimum(index_raw, self.pad_v), self.zero)
+        index_raw = np.clip(index_raw, self.zero, self.pad_v)
         index_def = np.squeeze((index_raw[:, 0] + index_raw[:, 1] * self.nx)).astype(int)
         type_def = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
 
-        # Boundary term correction
+        # TODO: (Leo) boundary term correction
         # If index_def_x == nx, add 1 to type_def_x. Do likewise for the y component
 
         # Interpolation
@@ -249,9 +249,11 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
         # Getting the index of the rectangular cell and the type of the triangle, while also ensuring the query index
         # is admissible (and at the same time: being able to input any point we want)
         index_raw, type_raw = np.divmod(M - [self.x0, self.y0], [self.hx, self.hy])
-        index_raw = np.maximum(np.minimum(index_raw, self.pad_v), self.zero)
+        index_raw = np.clip(index_raw, self.zero, self.pad_v)
         index_def = np.squeeze((index_raw[:, 0] + index_raw[:, 1] * self.nx)).astype(int)
         type_def = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
+
+        # TODO: (Leo) boundary term correction
 
         # Interpolation (time dependent version)
         row_indices = np.array(It)[:, None]
