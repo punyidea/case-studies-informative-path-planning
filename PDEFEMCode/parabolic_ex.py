@@ -86,25 +86,4 @@ for n in range(time_steps):
 fenics_list.insert(0, fc.interpolate(fc.Constant(0), fn_space))
 
 # Obtaining the interpolator for u
-# u = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, fenics_list, time_dependent=True, verbose=True)
 u = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, fenics_list, time_dependent=True, verbose=True)
-
-# #
-# P = np.array([[0, 0], [0, 1], [1, 0], [1, 1], [.25, 1], [1, .25], [.3, .7], [100, -.3]])
-# It = np.arange(0, len(fenics_list)).tolist()
-#
-# import time
-#
-# uq = fenics_list[3]
-# Q = np.array([10.2,.6])
-# ts=time.time()
-# for i in range(10000):
-#     uq(Q)
-# print('Fenics: ', time.time()-ts)
-#
-# ts=time.time()
-# for i in range(10000):
-#     u(Q,[3])
-# print('Mine: ', time.time()-ts)
-#
-# print(uq(Q)-u(Q,[3]))
