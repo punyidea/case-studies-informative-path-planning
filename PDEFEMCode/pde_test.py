@@ -93,7 +93,7 @@ class TestEllipticSolver(TestCase):
         u_ref = fc.Expression('sin(pi*x[0] + pi/2)*sin(pi*x[1]+pi/2)',
                 element = self.fn_space.ufl_element())
 
-        n_list = np.asarray(np.ceil(np.logspace(3,9,10, base=2)),
+        n_list = np.asarray(np.ceil(np.logspace(5,9,10, base=2)),
                                 dtype= np.int32)
         error_L2_list,error_LInf = np.empty((2,10))
         for ind,n_grid in enumerate(n_list):
@@ -103,8 +103,8 @@ class TestEllipticSolver(TestCase):
 
         OOC = -(np.log(error_L2_list[1:])-np.log(error_L2_list[:-1])) / \
                 (np.log(n_list[1:])-np.log(n_list[:-1]))
-        #check that we are within 0.03 of the desired order of convergence
-        np.testing.assert_allclose(OOC,2,atol=.03)
+        #check that we are within 0.01 of the desired order of convergence
+        np.testing.assert_allclose(OOC,2,atol=.01)
 
     def testPickleLoad(self):
         nx = ny = self.n
