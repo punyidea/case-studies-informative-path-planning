@@ -28,10 +28,31 @@ def pickle_load(fname,def_ext = '.pkl'):
         return pickle.load(f_obj)
 
 class RectangleInterpolator():
-    def __init__(self):
+    def __init__(self,nx, ny, P0, P1, fem_data, time_dependent=False, verbose=False):
+        # Some geometric initializations
+        pass
+        self.nx = nx
+        self.ny = ny
+        self.x0 = P0[0]
+        self.y0 = P0[1]
+        self.x1 = P1[0]
+        self.y1 = P1[1]
+        self.hx = (P1[0] - P0[0]) / nx
+        self.hy = (P1[1] - P0[1]) / ny
+        # To differentiate which interpolator to return. We now generate helping variables that will make interpolation
+        # faster later on
+        self.time_dependent = time_dependent
+        self.verbose = verbose
+
+        self.pre_computations(fem_data)
+
+    def pre_computations(self):
         pass
 
-class FenicsRectangleLinearInterpolator():
+
+    def __call__(self,coords):
+        raise Exception('Abstract class. No call method implemented.')
+class FenicsRectangleLinearInterpolator(RectangleInterpolator):
     '''
     Given the fenics solution to the time (in)dependent PDE, it wraps a function object around it. This new interolator
     function can be later called without the need of having fenics installed.
@@ -55,18 +76,8 @@ class FenicsRectangleLinearInterpolator():
     :return: a function, which when evaluated, gives the function evaluated at the desired space-time coordinates.
     '''
 
-    def __init__(self, nx, ny, P0, P1, fem_data, time_dependent=False, verbose=False):
-        # Some geometric initializations
-        #self.mesh = u_fenics.function_space().mesh()
-        self.nx = nx
-        self.ny = ny
-        self.x0 = P0[0]
-        self.y0 = P0[1]
-        self.x1 = P1[0]
-        self.y1 = P1[1]
-        self.hx = (P1[0] - P0[0]) / nx
-        self.hy = (P1[1] - P0[1]) / ny
-        #self.u = u_fenics
+    def pre_computations(self, fem_data):
+
 
         # Other temporary variables for the interpolation process
         self.D = self.hx * self.hy
@@ -78,11 +89,11 @@ class FenicsRectangleLinearInterpolator():
 
         # To differentiate which interpolator to return. We now generate helping variables that will make interpolation
         # faster later on
-        self.time_dependent = time_dependent
-        if not time_dependent:
+
+        if not self.time_dependent:
             mesh = fem_data.function_space().mesh()
             u = fem_data
-            self.T, self.Tx, self.Ty = self.pre_computations(u) # some helping variables to speed up the interpolation later on
+            self.T, self.Tx, self.Ty = self.pre_computations_mat(u) # some helping variables to speed up the interpolation later on
         else:
             mesh = fem_data[0].function_space().mesh()  # the mesh doesn't change with time
             # Let's make a list of the helping tensors we built in the time independent case
@@ -92,20 +103,20 @@ class FenicsRectangleLinearInterpolator():
             for i in range(len(fem_data)):
 
                 u = fem_data[i]
-                T, Tx, Ty = self.pre_computations(u)
+                T, Tx, Ty = self.pre_computations_mat(u)
 
                 T_glo.append(T)
                 Tx_glo.append(Tx)
                 Ty_glo.append(Ty)
 
-                if verbose:
+                if self.verbose:
                     print('Building function interpolator, ', str(np.floor(100 * (i + 1) / len(fem_data))), ' % done.')
 
             self.T_glo = np.array(T_glo)
             self.Tx_glo = np.array(Tx_glo)
             self.Ty_glo = np.array(Ty_glo)
 
-    def pre_computations(self, u):
+    def pre_computations_mat(self, u):
         '''
         It receives a fenics (non time dependent) function and computes some related helping variables to speed up
         the interpolation process later on.
@@ -262,7 +273,7 @@ class FenicsRectangleLinearInterpolator():
     #    return RegularGridInterpolator((self.x, self.y), self.U)
 
 
-class FenicsRectangleVecInterpolator(FenicsRectangleLinearInterpolator):
+class FenicsRectangleVecInterpolator(RectangleInterpolator):
     '''
     Wraps a fenics vector function object (gradient of function) so that it may be called by a
     function which supplies numpy arrays.

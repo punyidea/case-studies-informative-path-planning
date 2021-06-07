@@ -380,7 +380,7 @@ class TestInterpolators(unittest.TestCase):
     '''
     def setUp(self):
         self.n = 50
-        self.mesh, self.fn_space = pde_utils.setup_unitsquare_function_space(n)
+        self.mesh, self.fn_space = pde_utils.setup_unitsquare_function_space(self.n)
 
     def test_fenics_interpolate_bilin(self):
 
@@ -407,13 +407,13 @@ class TestInterpolators(unittest.TestCase):
         # Note, for very 'high' functions, the difference between me and Fenics is O(1e-6), instead of O(1e-13)
         wrap = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, time_dependent=True,
                                                         verbose=True)
-        my_interp = wrap.get_interpolator()
+        # my_interp = wrap.get_interpolator()
         # my_interp_ref = wrap.get_scipy_interpolator()
 
         P = np.array([[5.1, 22], [4, 18], [8, 23], [9.5, 1.1], [10, 2.5]])
         not_mine = np.zeros(len(list_fenics))
         for i in range(np.shape(P)[0]):
-            mine = my_interp(P[i, :], [0, 1, 2])
+            mine = wrap(P[i, :], [0, 1, 2])
 
             for j in range(len(list_fenics)):
                 not_mine[j] = list_fenics[j](P[i, :])
