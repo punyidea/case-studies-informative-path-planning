@@ -445,6 +445,9 @@ class fenics_rectangle_function_wrap():
         index_def = np.squeeze((index_raw[:, 0] + index_raw[:, 1] * self.nx)).astype(int)
         type_def = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
 
+        # Boundary term correction
+        # If index_def_x == nx, add 1 to type_def_x. Do likewise for the y component
+
         # Interpolation
         Px = self.Tx[index_def, type_def] * M[:, 0]
         Py = self.Ty[index_def, type_def] * M[:, 1]

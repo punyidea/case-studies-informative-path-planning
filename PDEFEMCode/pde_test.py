@@ -101,6 +101,22 @@ class TestPDEEllipticSolver(TestCase):
 
         print(time.time() - ts)
 
+    def test_function_wrap_border(self):
+        nx = 2
+        ny = 2
+        P0 = np.array([0, 0])
+        P1 = np.array([1, 1])
+        mesh, fn_space = pde_utils.setup_rectangular_function_space(nx, ny, P0, P1)
+
+        u_fenics = fc.interpolate(fc.Expression('pow(x[0],2)', degree=1), fn_space)
+
+        wrap = pde_utils.fenics_rectangle_function_wrap(nx, ny, P0, P1, u_fenics)
+        my_interp = wrap.get_interpolator()
+
+        P = np.array([1, 1/4])
+
+        print('Fenics: ', u_fenics(P), ', mine: ', my_interp(P))
+
 
 class TestPDEParabolicSolver(TestCase):
     fc.set_log_active(False)  # disable messages of Fenics
