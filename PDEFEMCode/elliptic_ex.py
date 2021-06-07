@@ -3,9 +3,9 @@ This file is a  working example of an elliptic (time independent) PDE solver.
 
 
 '''
-import PDEFEMCode.Object_IO
-import PDEFEMCode.pde_utils as pde_utils
-import PDEFEMCode.Object_IO as pde_IO
+import PDEFEMCode.interface
+import PDEFEMCode.fenics_utils as pde_utils
+import PDEFEMCode.interface as pde_IO
 import fenics as fc
 import numpy as np
 
@@ -53,9 +53,9 @@ LHS_int, RHS_int = pde_utils.variational_formulation(
 u_sol = pde_utils.solve_vp(fn_space,LHS_int,RHS_int)
 
 # Obtain solution functions, such that they work with numpy.
-f = PDEFEMCode.Object_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, u_sol)
+f = PDEFEMCode.interface.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, u_sol)
 u_grad = pde_utils.fenics_grad(mesh,u_sol)
-grad_f = PDEFEMCode.Object_IO.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_grad)
+grad_f = PDEFEMCode.interface.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_grad)
 
 param_save = {'f':f,'grad_f':grad_f}
 

@@ -3,8 +3,8 @@ This file is a working example in the discretization of the heat equation with h
 initial condition.
 '''
 
-import PDEFEMCode.pde_utils as pde_utils
-import PDEFEMCode.Object_IO as pde_IO
+import PDEFEMCode.fenics_utils as pde_utils
+import PDEFEMCode.interface as pde_IO
 import fenics as fc
 import numpy as np
 

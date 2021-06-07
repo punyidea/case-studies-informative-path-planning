@@ -1,9 +1,9 @@
 import unittest
 from unittest import TestCase
 
-import PDEFEMCode.Object_IO
-import PDEFEMCode.pde_utils as pde_utils
-import PDEFEMCode.Object_IO as pde_IO
+import PDEFEMCode.interface
+import PDEFEMCode.fenics_utils as pde_utils
+import PDEFEMCode.interface as pde_IO
 import fenics as fc
 import numpy as np
 import os
@@ -120,9 +120,9 @@ class TestEllipticSolver(TestCase):
 
         save_file = 'pde_test_sine_sol'
         out_dir = 'test-files'
-        f = PDEFEMCode.Object_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, u_sol)
+        f = PDEFEMCode.interface.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, u_sol)
         u_grad = pde_utils.fenics_grad(self.mesh, u_sol)
-        grad_f = PDEFEMCode.Object_IO.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_grad)
+        grad_f = PDEFEMCode.interface.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_grad)
 
         save_params = {'f':f, 'grad_f':grad_f}
         pde_IO.pickle_save(out_dir,save_file,save_params)
@@ -430,7 +430,7 @@ class TestInterpolators(unittest.TestCase):
         mesh, fn_space = pde_utils.setup_rectangular_function_space(nx, ny, P0, P1)
 
         u_fenics = fc.interpolate(fc.Expression('x[0]+pow(x[1],2)', degree=1), fn_space)
-        wrap = PDEFEMCode.Object_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, u_fenics)
+        wrap = PDEFEMCode.interface.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, u_fenics)
         #my_interp = wrap.get_interpolator
 
         P = np.array([6.41, 7.71])
@@ -446,18 +446,18 @@ class TestInterpolators(unittest.TestCase):
 
         u_fenics = fc.interpolate(fc.Expression('x[0]+pow(x[0],3)/42+pow(x[1],2)', degree=1), fn_space)
         u_fenics_grad = pde_utils.fenics_grad(mesh, u_fenics)
-        grad_approxim = PDEFEMCode.Object_IO.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_fenics_grad)
+        grad_approxim = PDEFEMCode.interface.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_fenics_grad)
 
         X,Y =np.meshgrid(np.linspace(4.01,9.995,24),
                         np.linspace(2.01,22.995,13),indexing='ij')
         coords = np.stack((X,Y),axis=-1)
         np.testing.assert_almost_equal(grad_approxim(coords) -
-                                       PDEFEMCode.Object_IO.native_fenics_eval_vec(u_fenics_grad, coords),
+                                       PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad, coords),
                                        0, decimal=6)
 
         coords = np.stack((np.linspace(4.01,9.995,24),np.linspace(2.01,9.995,24)),axis=-1)
         np.testing.assert_almost_equal(grad_approxim(coords) -
-                                       PDEFEMCode.Object_IO.native_fenics_eval_vec(u_fenics_grad, coords),
+                                       PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad, coords),
                                        0, decimal=6)
 
 
@@ -475,7 +475,7 @@ class TestFenicsFnWrap(unittest.TestCase):
         def test_xy(X,Y):
             ref_sol = affine_ref_f(X,Y)
             coords = np.stack((X,Y),axis=-1)
-            calc_sol = PDEFEMCode.Object_IO.native_fenics_eval_scalar(affine_fc, coords)
+            calc_sol = PDEFEMCode.interface.native_fenics_eval_scalar(affine_fc, coords)
             np.testing.assert_array_almost_equal(calc_sol,ref_sol)
 
         affine_ref_f = lambda X,Y: 1 + 3*X + 4*Y
@@ -501,7 +501,7 @@ class TestFenicsFnWrap(unittest.TestCase):
         def test_xy(X, Y):
             ref_sol = affine_grad_ref_f(X, Y)
             coords = np.stack((X, Y), axis=-1)
-            calc_sol = PDEFEMCode.Object_IO.native_fenics_eval_vec(grad_affine_fc, coords)
+            calc_sol = PDEFEMCode.interface.native_fenics_eval_vec(grad_affine_fc, coords)
             np.testing.assert_array_almost_equal(calc_sol, ref_sol)
 
         affine_grad_ref_f = lambda X, Y: np.ones_like(X)[..., np.newaxis] * np.array([3, 4])
@@ -525,7 +525,7 @@ class TestFenicsFnWrap(unittest.TestCase):
         def test_xy(X, Y):
             ref_sol = grad_hat_ref(X, Y)
             coords = np.stack((X, Y), axis=-1)
-            calc_sol = PDEFEMCode.Object_IO.native_fenics_eval_vec(grad_hat_fc, coords)
+            calc_sol = PDEFEMCode.interface.native_fenics_eval_vec(grad_hat_fc, coords)
             np.testing.assert_array_almost_equal(calc_sol, ref_sol)
 
         # hat function

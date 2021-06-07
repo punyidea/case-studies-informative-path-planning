@@ -80,7 +80,6 @@ def variational_formulation(u_trial, v_test, LHS, RHS, RHS_fn, LHS_args=None, RH
         the functional form of the test functions, and some function RHS_fn.
         For an example, see elliptic_RHS().
         Extra arguments are supplied through RHS_args
-        TODO (if need be): change RHS definition to include u_trial if need be?
     :param RHS_fn: a function defined on the FENICS function space, could be
             fc.Expression()
             fc.Constant()

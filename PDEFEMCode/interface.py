@@ -28,6 +28,9 @@ def pickle_load(fname,def_ext = '.pkl'):
         return pickle.load(f_obj)
 
 class RectangleInterpolator():
+    '''
+    This is an abstract class that stores common parameters of the gradient interpolator.
+    '''
     def __init__(self,nx, ny, P0, P1, fem_data, time_dependent=False, verbose=False):
         # Some geometric initializations
         pass
@@ -277,8 +280,9 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
     function which supplies numpy arrays.
     It is memory inefficient but runtime efficient.
     NOTE: DEPENDENT ON USING RECTANGULAR MESH WITH UP/RIGHT diagonals.
-    ASSUMES THE FUNCTION IS PIECEWISE CONSTANT ON MESH ELEMENTS,
+    ASSUMES THE FUNCTION IS PIECEWISE CONSTANT ON MESH ELEMENTS (i.e. fn_space, 'DG',0),
         like the gradient of a function on Lagrangian "hat" elements.
+    TODO: (Victor) Mention behavior outside of bounds.
 
     Variables.
     :param mesh: the fenics mesh object that we used.
@@ -321,6 +325,7 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
 
     def __call__(self,coords):
         '''
+        TODO: (Victor) add time dependent solution, with a simple round.
         When called, returns the gradient of the point on the mesh.
         :param coords: coordinates on which we'd like to shape (don't care) by 2
         :return: gradient of the interpolator, shape  (coords.shape[:-1} x2)
