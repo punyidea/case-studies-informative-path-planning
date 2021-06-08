@@ -158,30 +158,81 @@ class TestEllipticSolver(TestCase):
 
 
 class TestPDEParabolicSolver(TestCase):
-    fc.set_log_active(False)  # disable messages of Fenics
+    @classmethod
+    def setUpClass(self):
+        self.setup_preliminary()
 
-    LHS = staticmethod(pde_utils.heat_eq_LHS)
-    RHS = staticmethod(pde_utils.heat_eq_RHS)
+    @classmethod
+    def setup_preliminary(cls):
+        fc.set_log_active(False)  # disable messages of Fenics
 
-    # Bottom right and top left corner of rectangular domain
-    P0 = np.array([0, 0])
-    P1 = np.array([1, 1])
+        # Bottom right and top left corner of rectangular domain
+        cls.P0 = np.array([0, 0])
+        cls.P1 = np.array([1, 1])
 
-    # Discretizations parameters
-    T = 1.0  # final time
-    D = 4  # how many times do we want to do solve our problem ?
-    initial_power = 7
-    final_power = 10
-    time_array = np.ceil(np.logspace(initial_power, final_power, D, base=2.0)).astype(
-        int)  # vector of total time steps, per time we do a time discretization
-    N_array = np.ceil(np.sqrt(time_array)).astype(int)  # vector of mesh sizes
+        # Discretizations parameters
+        cls.T = 1.0  # final time
 
-    err = 'L2'  # error to be outputted ('uni', 'L2', 'H1')
+        cls.LHS = staticmethod(pde_utils.heat_eq_LHS)
+        cls.RHS = staticmethod(pde_utils.heat_eq_RHS)
 
-    def solve_obtain_error(self, RHS_fn, u_ref):
+    def ooc_arrays(self, D, ip, fp):
         '''
-        helper function for test cases below. It runs a series of tests with different discretizations, and it then
-        returns the corresponding errors. The error is only computed at the final time of every time discretization.
+        Returns time and space discretization parameters, if we want to test the order of convergence of the parabolic
+        solver
+
+        :param D: number of times we'll solve the heat equation
+        :param ip: first time discretization (uniform, with 2^ip subdivisions)
+        :param fp: lst time discretization (uniform, with 2^fp subdivisions)
+
+        It computes:
+            time_array, i.e. a logspace array from 2^ip, to 2^fp, of D entries
+            N_array, i.e. sqrt(time_array)
+        '''
+
+
+        self.D = D  # how many times do we want to do solve our problem ?
+        initial_power = ip
+        final_power = fp
+        self.time_array = np.ceil(np.logspace(initial_power, final_power, D, base=2.0)).astype(
+            int)  # vector of total time steps, per time we do a time discretization
+        self.N_array = np.ceil(np.sqrt(self.time_array)).astype(int)  # vector of mesh sizes
+
+    def time_independence_arrays(self, D, ip, fp, N):
+        '''
+        Returns time and space discretization parameters, if we want to test that the computed error doesn't depend on
+        time
+
+        :param D: number of times we'll solve the heat equation
+        :param ip: first time discretization (uniform, with 2^ip subdivisions)
+        :param fp: lst time discretization (uniform, with 2^fp subdivisions)
+        :param N: only one spatial mesh size
+
+        It computes:
+            time_array, i.e. a logspace array from 2^ip, to 2^fp, of D entries
+            N_array = repeated N to match the length of time_array
+        '''
+
+
+        self.D = D  # how many times do we want to do solve our problem ?
+        initial_power = ip
+        final_power = fp
+        self.time_array = np.ceil(np.logspace(initial_power, final_power, D, base=2.0)).astype(
+            int)  # vector of total time steps, per time we do a time discretization
+        self.N_array = np.ceil(np.repeat([N], self.D)).astype(int)  # vector of mesh sizes
+
+    def compute_ooc(self, err, verbose=True):
+        times = self.time_array
+        ooc = - (np.log(err[1:])-np.log(err[:-1]))/(np.log(times[1:])-np.log(times[:-1]))
+        if verbose:
+            print('Order of convergence: ', ooc)
+        return ooc
+
+    def solve_obtain_error(self, RHS_fn, u_ref, t_err, err_type, verbose=False):
+        '''
+        Helper function for test cases below. It runs a series of tests with different discretizations, and it then
+        returns the corresponding errors.
+        The error is only computed around the time t_err
         '''
 
         # Errors tensor
@@ -228,10 +279,10 @@ class TestPDEParabolicSolver(TestCase):
                 u_previous.assign(u_current)
 
                 # Saving the error only at the middle timestep
-                if t > 0.5 and not computed_error:
-                    if self.err == 'uni':
+                if t > t_err and not computed_error:
+                    if err_type == 'uni':
                         error = pde_utils.error_LInf_piece_lin(u_ref, u_current, mesh)
-                    elif self.err == 'L2':
+                    elif err_type == 'L2':
                         error = fc.errornorm(u_ref, u_current, 'L2')
                     else:
                         error = fc.errornorm(u_ref, u_current, 'H1')
@@ -240,53 +291,54 @@ class TestPDEParabolicSolver(TestCase):
 
                     computed_error = True
 
-                print('Discretization: ', current_discr, '\nStep :', n)
+                if verbose:
+                    print('Discretization: ',1+current_discr,'/',self.D,'; ',np.ceil(n/curr_time_steps*100),' % done.')
 
         return err_tot
 
     def test_easy_polynomial(self):
 
         '''
-        Expected behaviour: loglog(time_array, err_tot) and loglog(time_array, 1/time_array) should be parallel, in the
-        L2 norm. Moreover, the error shouldn't depend on the time discretization.
+        Expected behaviour: the L2 error shouldn't depend on the time discretization.
         '''
 
         RHS_fn = fc.Expression('3*pow(x[0],2) - 2*pow(x[0],3) + (3 - 2*x[1])*pow(x[1],2) + 12*t*(-1 + x[0] + x[1])',
                                degree=2, t=0)
         u_ref = fc.Expression('t*(3*pow(x[0],2) - 2*pow(x[0],3) + (3 - 2*x[1])*pow(x[1],2))', degree=2, t=0)
 
-        # Overwriting discretizations parameters
-        self.T = 1.0  # final time
-        self.D = 8  # how many times do we want to do solve our problem ?
-        self.initial_power = 7
-        self.final_power = 11
-        self.time_array = np.ceil(np.logspace(self.initial_power, self.final_power, self.D, base=2.0)).astype(
-            int)  # vector of total time steps, per time we do a time discretization
-        self.N_array = np.ceil(np.repeat([20], self.D)).astype(int)  # vector of mesh sizes
+        # Discretization parameters, the mesh doesn't change
+        self.time_independence_arrays(8, 7, 14, 20)
 
-        err = 'L2'  # error to be outputted ('uni', 'L2', 'H1')
+        # Computing the error at time t_err
+        err_type = 'L2'  # error to be outputted ('uni', 'L2', 'H1')
+        t_err = 0.5
+        err_tot = self.solve_obtain_error(RHS_fn, u_ref, t_err, err_type, verbose=True)
 
-        err_tot = self.solve_obtain_error(RHS_fn, u_ref)
-        np.savetxt('err_' + self.err + '_easy_polynomial.txt', err_tot)
-        raise Exception('Error test not implemented')
+        np.testing.assert_allclose(err_tot[-3:-1], np.mean(err_tot[-3:-1]), atol=1e-7, rtol=0)
+
+        # TODO: (leo) futher testing here
 
     def test_constant(self):
 
         '''
-        Expected behaviour: the exact solution (up to machine precision) is computed
+        Expected behaviour: the exact solution (up to machine precision) is computed.
         '''
 
         RHS_fn = fc.Expression('1', degree=2)
         u_ref = fc.Expression('t', degree=2, t=0)
 
-        err_tot = self.solve_obtain_error(RHS_fn, u_ref)
-        raise Exception('Error test not implemented')
+        # Setting up the test
+        self.ooc_arrays(4, 7, 12)
+        err_type = 'uni'  # error to be outputted ('uni', 'L2', 'H1')
+        err_tot = self.solve_obtain_error(RHS_fn, u_ref, 0.5, err_type, verbose=True)
+
+        # No error?
+        np.testing.assert_allclose(err_tot, 0, atol=1e-12, rtol=0)
 
     def test_moving_bump(self):
-
         '''
         Expected behaviour: loglog(time_array, err_tot) and loglog(time_array, 1/time_array) should be parallel, in the
-        L2 norm
+        L2 norm (at least, asymptotically). I.e. we want order of convergence asymptotically close to 1
         '''
 
         fcase1 = '(exp(16 + 1/(-0.0625 + pow(-0.5 + x[0] - cos(t)/4.,2) + pow(-0.5 + x[1] - sin(t)/4.,2)))*sin((' \
@@ -311,18 +363,23 @@ class TestPDEParabolicSolver(TestCase):
         uexpr = ucond1 + ' ? ' + ucase1 + ' : ' + ucase2
         u_ref = fc.Expression(uexpr, degree=6, t=0)
 
-        err_tot = self.solve_obtain_error(RHS_fn, u_ref)
-        np.savetxt('err_' + self.err + '_one_bump.txt', err_tot)
+        # Setting up a test for the order of convergence
+        self.ooc_arrays(4, 7, 12)
 
-        # results from matlab: -0.7810   -0.8272   -0.8354   -0.9781   -0.9205   -0.9978   -0.9757
+        # Computing the error at time t_err
+        err_type = 'L2'  # error to be outputted ('uni', 'L2', 'H1')
+        t_err = 0.5
+        err_tot = self.solve_obtain_error(RHS_fn, u_ref, t_err, err_type, verbose=True)
 
-        raise Exception('Error test not implemented')
+        # Testing the order of convergence
+        ooc = self.compute_ooc(err_tot)
+        np.testing.assert_almost_equal(ooc[-1], 1, 0.05)
 
     def test_moving_bumps(self):
 
         '''
-        Expected behaviour: loglog(time_array, err_tot) and loglog(time_array, 1/time_array) should be parallel, in the
-        L2 norm
+        Expected behaviour: the code runs without errors. No analytical solution is provided here, this is just a test
+        for conditional expressions.
         '''
 
         fcase1 = '(exp(16)*(exp(-t + 1/(-0.0625 + pow(-0.5 + x[0] + cos(t)/4.,2) + pow(-0.5 + x[1] + sin(t)/4.,' \
@@ -348,22 +405,23 @@ class TestPDEParabolicSolver(TestCase):
 
         RHS_fn = fc.Expression(fexpr, degree=6, t=0)
 
-        ucase1 = '(exp(16 + 1/(-0.0625 + pow(-0.5 + x[0] - cos(t)/4.,2) + pow(-0.5 + x[1] - sin(t)/4.,2)))*pow(sin((' \
-                 '3*t)/2.),2))/2. '
-        ucase2 = '0'
-        ucond1 = '2 + 4*pow(x[0],2) + 4*pow(x[1],2) + cos(t) + sin(t) < 2*(2*(x[0] + x[1]) + x[0]*cos(t) + x[1]*sin(t))'
-        uexpr = ucond1 + ' ? ' + ucase1 + ' : ' + ucase2
-        u_ref = fc.Expression(uexpr, degree=6, t=0)
+        # ucase1 = '(exp(16 + 1/(-0.0625 + pow(-0.5 + x[0] - cos(t)/4.,2) + pow(-0.5 + x[1] - sin(t)/4.,2)))*pow(sin((' \
+        #          '3*t)/2.),2))/2. '
+        # ucase2 = '0'
+        # ucond1 = '2 + 4*pow(x[0],2) + 4*pow(x[1],2) + cos(t) + sin(t) < 2*(2*(x[0] + x[1]) + x[0]*cos(t) + x[1]*sin(t))'
+        # uexpr = ucond1 + ' ? ' + ucase1 + ' : ' + ucase2
+        u_ref = fc.Expression('0', degree=6, t=0)
 
-        err_tot = self.solve_obtain_error(RHS_fn, u_ref)
-        np.savetxt('err_L2.txt', err_tot)
-        raise Exception('Error test not implemented')
+        # Setting up a test for the order of convergence
+        self.ooc_arrays(4, 7, 9)
+        err_type = 'L2'  # error to be outputted ('uni', 'L2', 'H1')
+        _ = self.solve_obtain_error(RHS_fn, u_ref, 0.5, err_type, verbose=True)
 
     def test_polynomial(self):
 
         '''
         Expected behaviour: loglog(time_array, err_tot) and loglog(time_array, 1/time_array) should be parallel, in the
-        L2 norm
+        L2 norm (at least, asymptotically). I.e. we want order of convergence asymptotically close to 1
         '''
 
         RHS_fn = fc.Expression(
@@ -372,11 +430,17 @@ class TestPDEParabolicSolver(TestCase):
         u_ref = fc.Expression('((-3*pow(x[0],2) + 2*pow(x[0],3) + pow(x[1],2)*(-3 + 2*x[1]))*(-1 + cos(3*t)))/4',
                               degree=2, t=0)
 
-        err_tot = self.solve_obtain_error(RHS_fn, u_ref)
-        print(err_tot)
-        # np.savetxt('err_'+self.err+'_polynomial.txt',err_tot )
-        # results from matlab: -0.8565   -1.0323   -0.9597   -1.0363   -0.9617   -1.0122   -0.9873
-        raise Exception('Error test not implemented')
+        # Setting up a test for the order of convergence
+        self.ooc_arrays(4, 7, 12)
+
+        # Computing the error at time t_err
+        err_type = 'L2'  # error to be outputted ('uni', 'L2', 'H1')
+        t_err = 0.5
+        err_tot = self.solve_obtain_error(RHS_fn, u_ref, t_err, err_type, verbose=True)
+
+        # Testing the order of convergence
+        ooc = self.compute_ooc(err_tot)
+        np.testing.assert_almost_equal(ooc[-1], 1, 0.05)
 
 
 class TestInterpolators(unittest.TestCase):
@@ -413,8 +477,6 @@ class TestInterpolators(unittest.TestCase):
         # Note, for very 'high' functions, the difference between me and Fenics is O(1e-6), instead of O(1e-13)
         wrap = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, time_dependent=True,
                                                         verbose=True)
-        # my_interp = wrap.get_interpolator()
-        # my_interp_ref = wrap.get_scipy_interpolator()
 
         P = np.array([[5.1, 22], [4, 18], [8, 23], [9.5, 1.1], [10, 2.5], [10, 23]])
         not_mine = np.zeros(len(list_fenics))

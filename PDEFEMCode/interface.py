@@ -34,7 +34,7 @@ class RectangleInterpolator():
     This is an abstract class that stores common parameters of the gradient interpolator.
     '''
 
-    def __init__(self, nx, ny, P0, P1, fem_data, time_dependent=False, verbose=False):
+    def __init__(self, nx, ny, P0, P1, fem_data, T=None, Nt=None, time_dependent=False, for_optimization=True, verbose=False):
         # Some geometric initializations
         pass
         self.nx = nx
@@ -45,6 +45,16 @@ class RectangleInterpolator():
         self.y1 = P1[1]
         self.hx = (P1[0] - P0[0]) / nx
         self.hy = (P1[1] - P0[1]) / ny
+
+        # Some temporal initializations
+        if time_dependent and T is None or Nt is None:
+            raise Exception('Please insert the final time and the number of time intervals.')
+        else:
+            self.T=T
+            self.Nt=Nt
+
+        # Variable deciding if the returned interpolator will have some additional functionalities or not
+        self.for_optimization = for_optimization
 
         # Now, we enlarge the mesh by one cell in every direction, to handle boundary points well
         self.enx = self.nx + 2
@@ -88,7 +98,8 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
     time, 1 the time immediately after and so on).
         my_interp_time(np.array([0,3]),[0,2,7])
         my_interp_stat(np.array([0,3]))
-
+    In general, the output of my_interp_time is an NxNt matrix, of N evaluations in space for every Nt time instants
+    TODO (leo): fix documentation
     Input variables.
     :param mesh: the rectangular fenics mesh object that we used. It is supposed to be composed of uniform rectangular
     cells, divided into triangles by the down-left to up-right diagonal
@@ -103,6 +114,11 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
     '''
 
     def pre_computations(self, fem_data):
+
+        # All possible time indices
+        if self.time_dependent:
+            self.t_ind_all = np.arange(0, self.Nt+1).tolist()
+            self.dt = 1 / self.Nt
 
         # Other temporary variables for the interpolation process
         self.D = self.hx * self.hy
@@ -257,17 +273,22 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
 
         return np.squeeze(N / self.D)
 
-    def get_interpolator_parabolic(self, M, It):
+    def get_interpolator_parabolic_time_interpolation(self, M, times=None):
         '''
-        It takes in a matrix of N points (Nx2) and an array of time indices (Tx1), which is a subset of 0:len(fem_data)
-        It returns a matrix that is NxT (N spatial interpolations at every time)
+        TODO (leo); add documentation
         '''
 
-        # If a single query point / single time
+        # If a single query point
         if len(np.shape(M)) == 1:
             M = np.array([M])
-        if not type(It) == list:
-            It = [It]
+        if times is None:
+            # We condider exactly all the timestamps from the heat equation simulation
+            t_ind = self.t_ind_all # all time indices
+        else:
+            # Handling a single time or a list of times
+            if len(np.shape(M)) == 1:
+                M = np.array([M])
+            t_ind = np.clip(np.round(times/self.dt), 0, self.Nt).astype(int).tolist()
 
         # Getting the index of the rectangular cell and the type of the triangle, while also ensuring the query index
         # is admissible (and at the same time: being able to input any point we want)
@@ -277,7 +298,7 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
         type_def = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
 
         # Interpolation (time dependent version)
-        row_indices = np.array(It)[:, None]
+        row_indices = np.array(t_ind)[:, None]
         Px = self.Tx_glo[row_indices, index_def, type_def] * M[:, 0]
         Py = self.Ty_glo[row_indices, index_def, type_def] * M[:, 1]
         N = self.T_glo[row_indices, index_def, type_def] + Px + Py
@@ -291,7 +312,7 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
         if not self.time_dependent:
             return self.get_interpolator_elliptic(*args, **kwargs)
         else:
-            return self.get_interpolator_parabolic(*args, **kwargs)
+            return self.get_interpolator_parabolic_time_interpolation(*args, **kwargs)
 
     # def get_scipy_interpolator(self):
     #    return RegularGridInterpolator((self.x, self.y), self.U)
