@@ -26,12 +26,12 @@ f_expression = '3*(-1 + x[0] + x[1]) - 3*(-1 + x[0] + x[1])*cos(3*t) + (3*(3*pow
 # subdivided into two triangles by the down-left to up-right diagonal. In total there are 2 x 100 x 100 triangles.
 N = 10
 nx, ny = N, N
-P0, P1 = np.array([10,-50]), np.array([11, 2])  # top right, bottom left corner
+P0, P1 = np.array([10, -50]), np.array([11, 2])  # top right, bottom left corner
 
 # Parameters determining the time discretization. The simulation is conducted from time 0 to T, for a total of
-# time_steps uniformly distributed times.
+# Nt uniformly distributed times.
 T = 1.0  # final time
-time_steps = N ** 2
+Nt = N ** 2  # number of time intervals: a uniform time-grid of 1+Nt timestamps is generated
 
 # ------Begin main code.----------
 
@@ -39,7 +39,7 @@ time_steps = N ** 2
 mesh, fn_space = pde_utils.setup_rectangular_function_space(nx, ny, P0, P1)
 
 # Time discretization
-dt, times = pde_utils.setup_time_discretization(T, time_steps)
+dt, times = pde_utils.setup_time_discretization(T, Nt)
 
 RHS_fn = fc.Expression(
     '3*(-1 + x[0] + x[1]) - 3*(-1 + x[0] + x[1])*cos(3*t) + (3*(3*pow(x[0],2) - 2*pow(x[0],3) + (3 - '
@@ -67,7 +67,7 @@ fenics_list = []  # list of Fenics functions to be passed to the interpolators
 
 # Solving
 fc.set_log_active(False)  # disable messages of Fenics
-for n in range(time_steps):
+for n in range(Nt):
     # Time update
     t = times[n + 1]
     RHS_fn.t = t  # NB. This change is also reflected inside LHS_int, RHS_int
@@ -86,4 +86,6 @@ for n in range(time_steps):
 fenics_list.insert(0, fc.interpolate(fc.Constant(0), fn_space))
 
 # Obtaining the interpolator for u
-u = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, fenics_list, time_dependent=True, verbose=True)
+u = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, fenics_list, T=T, Nt=Nt, time_dependent=True, verbose=True, for_optimization=True)
+
+# Please check the documentation of FenicsRectangleLinearInterpolator for examples of usage

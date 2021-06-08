@@ -140,22 +140,6 @@ class TestEllipticSolver(TestCase):
         grad_f_load_eval = load_params['grad_f'](coords)
         np.testing.assert_array_equal(grad_f_save_eval, grad_f_load_eval)
 
-    def test_function_wrap_border(self):
-        nx = 2
-        ny = 2
-        P0 = np.array([0, 0])
-        P1 = np.array([1, 1])
-        mesh, fn_space = pde_utils.setup_rectangular_function_space(nx, ny, P0, P1)
-
-        u_fenics = fc.interpolate(fc.Expression('pow(x[0],2)', degree=1), fn_space)
-
-        wrap = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, u_fenics)
-        # my_interp = wrap.get_interpolator()
-
-        P = np.array([1, 1 / 4])
-
-        print('Fenics: ', u_fenics(P), ', mine: ', wrap(P))
-
 
 class TestPDEParabolicSolver(TestCase):
     @classmethod
@@ -190,7 +174,6 @@ class TestPDEParabolicSolver(TestCase):
             N_array, i.e. sqrt(time_array)
         '''
 
-
         self.D = D  # how many times do we want to do solve our problem ?
         initial_power = ip
         final_power = fp
@@ -213,7 +196,6 @@ class TestPDEParabolicSolver(TestCase):
             N_array = repeated N to match the length of time_array
         '''
 
-
         self.D = D  # how many times do we want to do solve our problem ?
         initial_power = ip
         final_power = fp
@@ -223,7 +205,7 @@ class TestPDEParabolicSolver(TestCase):
 
     def compute_ooc(self, err, verbose=True):
         times = self.time_array
-        ooc = - (np.log(err[1:])-np.log(err[:-1]))/(np.log(times[1:])-np.log(times[:-1]))
+        ooc = - (np.log(err[1:]) - np.log(err[:-1])) / (np.log(times[1:]) - np.log(times[:-1]))
         if verbose:
             print('Order of convergence: ', ooc)
         return ooc
@@ -292,7 +274,8 @@ class TestPDEParabolicSolver(TestCase):
                     computed_error = True
 
                 if verbose:
-                    print('Discretization: ',1+current_discr,'/',self.D,'; ',np.ceil(n/curr_time_steps*100),' % done.')
+                    print('Discretization: ', 1 + current_discr, '/', self.D, '; ', np.ceil(n / curr_time_steps * 100),
+                          ' % done.')
 
         return err_tot
 
@@ -316,7 +299,7 @@ class TestPDEParabolicSolver(TestCase):
 
         np.testing.assert_allclose(err_tot[-3:-1], np.mean(err_tot[-3:-1]), atol=1e-7, rtol=0)
 
-        # TODO: (leo) futher testing here
+        # TODO: (Leo) further testing here, ask Constantin and Thomas too
 
     def test_constant(self):
 
@@ -462,12 +445,14 @@ class TestInterpolators(unittest.TestCase):
         eval_wrap = affine_np(np.stack((X, Y), axis=-1))
         np.testing.assert_almost_equal(eval_ref, eval_wrap)
 
-    def test_function_wrap(self):
+    def test_parabolic_interp(self):
         nx = 5
         ny = 6
         P0 = np.array([4, 1])
         P1 = np.array([10, 23])
         mesh, fn_space = pde_utils.setup_rectangular_function_space(nx, ny, P0, P1)
+        T = 1
+        Nt = 2
 
         F1 = fc.interpolate(fc.Expression('x[0]+pow(x[1],2)', degree=1), fn_space)
         F2 = fc.interpolate(fc.Expression('3*x[0]+pow(x[1],2)+cos(100*x[0])', degree=1), fn_space)
@@ -475,19 +460,80 @@ class TestInterpolators(unittest.TestCase):
         list_fenics = [F1, F2, F3]
 
         # Note, for very 'high' functions, the difference between me and Fenics is O(1e-6), instead of O(1e-13)
-        wrap = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, time_dependent=True,
-                                                        verbose=True)
+        wrap = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T=T, Nt=Nt, time_dependent=True,
+                                                        for_optimization=False, verbose=True)
 
-        P = np.array([[5.1, 22], [4, 18], [8, 23], [9.5, 1.1], [10, 2.5], [10, 23]])
-        not_mine = np.zeros(len(list_fenics))
+        P = np.array([[5.1, 22], [10, 18], [8, 23], [9.5, 1.1], [10, 2.5], [10, 23]])
+
+        # A test on single time-space evaluations
+        not_mine = np.zeros((np.shape(P)[0], len(list_fenics)))
+        mine = np.zeros(len(list_fenics))
         for i in range(np.shape(P)[0]):
-            mine = wrap(P[i, :], [0, 1, 2])
 
             for j in range(len(list_fenics)):
-                not_mine[j] = list_fenics[j](P[i, :])
+                not_mine[i, j] = list_fenics[j](P[i, :])
+                mine[j] = wrap(P[i, :], [0, .5, 1][j])
 
-            delta = mine - not_mine
+            delta = mine - not_mine[i, :]
             np.testing.assert_almost_equal(np.max(np.abs(delta)), 0, decimal=8)
+
+        # A test on vector evaluation
+        mine = wrap(P)
+        np.testing.assert_almost_equal(np.max(np.abs(mine.T - not_mine)), 0, decimal=8)
+
+        times = [.4, 1.1]
+        mine = wrap(P, times)
+        np.testing.assert_almost_equal(np.max(np.abs(mine.T - not_mine[:, [1, 2]])), 0, decimal=8)
+
+        # Testing the optimization mode
+        # Pointwise test
+        tr_len = 3
+        not_mine = np.zeros(tr_len)
+        for i in range(tr_len):
+            not_mine[i] = list_fenics[i](P[i, :])
+            np.testing.assert_almost_equal(not_mine[i] - wrap(P[i, :], [[-1, .6, 1][i]], optimization_mode=True), 0,
+                                           decimal=8)
+
+        # Vector test
+        mine = wrap(P[[0, 2], :], [0, 1], optimization_mode=True)
+        np.testing.assert_almost_equal(np.max(np.abs(mine - not_mine[[0, 2]])), 0, decimal=8)
+        mine = wrap(P[[0, 1, 2], :], optimization_mode=True)
+        np.testing.assert_almost_equal(np.max(np.abs(mine - not_mine)), 0, decimal=8)
+
+        # Now a test on the optimization version
+        wrapO = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T=T, Nt=Nt, time_dependent=True,
+                                                         for_optimization=True, verbose=True)
+        # Test without explicit indices
+        mineO = wrapO(P[[0, 1, 2], :])
+        np.testing.assert_almost_equal(np.max(np.abs(mineO - not_mine)), 0, decimal=8)
+
+        # Test with explicit indices
+        mineO = wrapO(P[[[2,0,0]], :], 2)
+        np.testing.assert_almost_equal(np.max(np.abs(mineO - not_mine[[2,0,0]])), 0, decimal=8)
+
+    def test_elliptic_interp(self):
+        nx = 2
+        ny = 2
+        P0 = np.array([1, 1])
+        P1 = np.array([2, 2])
+        mesh, fn_space = pde_utils.setup_rectangular_function_space(nx, ny, P0, P1)
+
+        u_fenics = fc.interpolate(fc.Expression('x[0]*x[1]', degree=1), fn_space)
+
+        wrap = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, u_fenics, time_dependent=False)
+        # my_interp = wrap.get_interpolator()
+
+        P = np.array([[1, 1], [2, 2], [1.5, 1], [1.5, 2], [1, 1.5], [2, 1.5], [1.3, 1.7]])
+
+        # Pointwise test
+        not_mine = np.zeros(np.shape(P)[0])
+        for i in range(np.shape(P)[0]):
+            not_mine[i] = u_fenics(P[i,:])
+            np.testing.assert_almost_equal(not_mine[i], wrap(P[i,:]))
+
+        # Vector test
+        np.testing.assert_almost_equal(not_mine, wrap(P))
+
 
     def test_fenics_lin_interpolator_rectangle_right(self):
         nx = 2

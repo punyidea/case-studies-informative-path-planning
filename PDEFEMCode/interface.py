@@ -47,7 +47,7 @@ class RectangleInterpolator():
         self.hy = (P1[1] - P0[1]) / ny
 
         # Some temporal initializations
-        if time_dependent and T is None or Nt is None:
+        if time_dependent and (T is None or Nt is None):
             raise Exception('Please insert the final time and the number of time intervals.')
         else:
             self.T=T
@@ -89,26 +89,70 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
     ASSUMES THE FENICS FUNCTION(s) ARE PIECEWISE AFFINE ON MESH ELEMENTS
     IF A QUERY POINT (x,y) IS OUTSIDE [a,b]x[c,d], (x,y) IS TRANSFORMED INTO (clip(x,a,c), clip(y,c,d))
 
-    Use case:
-        my_interp_time = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, fenics_list, time_dependent=True)
-        my_interp_stat = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, fenics_list, time_dependent=False)
-    my_interp now accepts an Nx2 numpy array of query points, where the solution of the pde is evaluated. If the
-    solution is time dependent, a time array can also be specified: the solution will be interpolated at the query
-    points for every desired time instant. The time array is an ordered list of indices (0 indicates the initial
-    time, 1 the time immediately after and so on).
-        my_interp_time(np.array([0,3]),[0,2,7])
-        my_interp_stat(np.array([0,3]))
-    In general, the output of my_interp_time is an NxNt matrix, of N evaluations in space for every Nt time instants
-    TODO (leo): fix documentation
+    Use case and examples
+    Three different version of interpolators can be returned. In any case, if (x,y) is outside the computational domain
+    [a,b]x[c,d], (x,y) is transformed into (clip(x,a,c), clip(y,c,d))
+
+    1) an interpolator of a function not depending on time. Given an Nx2 matrix P of query points, it returns an N
+    vector containing the evaluation of the Fenics function at every point. It also supports evaluation on one point
+    only, however, for efficiency, consider inputting an Nx2 matrix of points, instead of doing N times a single point
+    evaluation.
+        u = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, fenics_function)
+        P = np.array[[42,42],[0,1]]
+        u(P) # returns a vector of length 2, containing u_fenics([42,42]), u_fenics([0,1])
+        Q = np.array([1,2])
+        u(Q) # returns a real number
+
+    2) an interpolator of a function depending on time, with some nice functionalities. The query points are still a
+    matrix P of size Nx2 or a single point. The times are an array times of length N_times (or a single real number).
+    A matrix of size N_times x N is returned. Times that are not exactly in the correct times on which the PDE was
+    simulated get mapped to the closest correct time (see example below).
+    This version is to be used during development, it is advised to use 3) in the final version of the code.
+        T = 1   # the time simulation runs from time 0 to time 1
+        Nt = 2  # the time interval [0,T] is subdivided into 0,t_1,t_2,...,t_Nt+1, where t_i+1-t_i=T/Nt
+        list_fenics = [fenics_function1, fenics_function2, fenics_function3]    # fenics function at times 0, .5, 1
+
+        2.1) Standard version, i.e. evaluation of fenics_function at all points in P, for every timestamp in times
+            u = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T=T, Nt=Nt, time_dependent=True)
+            P = np.array([[5.1, 22], [10, 18], [8, 23]])
+            times = [-100, 1, .4, .1]   # vector of times, which differ quite a lot from [0, .5, 1]
+            u(P, times) # return u(points in P, t_i) for all t_i of times, a 4x3 matrix
+            u(P) # return u(points in P, t_i) for all t_i in the times of the PDE simulation [0,.5,1],thus a 3x3 matrix
+
+        2.2) Optimization version. The i-th point in P is interpreted as the only query point at time i. Therefore, P
+        and times must have the same length, and a vector of this length is outputted. It is fenics_function(P_i,t_i) at
+        every index i
+            u = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T=T, Nt=Nt, time_dependent=True)
+            P = np.array([[5.1, 22], [10, 18], [8, 23]])
+            times = [-100, 1, .4]   # vector of times, same length of P
+            u(P, times) # return a 3 vector
+            u(P) # luckily, [0,.5,1], the times of the PDE simulation, also has length 3, so a 3 vector is returned.
+                 # It contains fenics_functioni(P_i) at every index i
+
+     3) almost the same interpolator of 2.2), with the difference that instead of real times, now we must input a list
+     of integer time indices, contained in {0,...,Nt}. No time interpolations/clipping are performed here, to get a
+     faster version.
+        u = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T=T, Nt=Nt, time_dependent=True,
+            for_optimization = True)
+        P = np.array([[5.1, 22], [10, 18], [8, 23]])
+        # times = [-100, 1, .4]   # vector of times, same length of P -> it will raise an error
+        time_indices = [0, 1]
+        u(P[[0,1],:], time_indices) # for evaluation of P_i at [0, .5, 1][i], i=0,1
+        u(P) # for evaluation of P_i at [0, .5, 1][i], for all i
+
     Input variables.
     :param mesh: the rectangular fenics mesh object that we used. It is supposed to be composed of uniform rectangular
     cells, divided into triangles by the down-left to up-right diagonal
     :param P0, P1: two 2d numpy arrays, specifying upper right and lower left corners of the rectangular domain
     :param nx, ny: number of side rectangular cells in x and y directions
-    :param time_dependent. If True, we return the interpolator for the parabolic equation, for the elliptic otherwise.
-        It's False by default.
     :param fem_data: the fenics function to wrap in the interpolator if time_dependent = False,
         the ordered list of all such functions (as time varies), if time_dependent = True
+    :param time_dependent. If True, we return the interpolator for the parabolic equation, for the elliptic otherwise.
+    It's False by default.
+    :param T. Final time of PDE simulation. Needed if time_dependent = True
+    :param Nt. Number of time intervals in which [0,T] is subdivided for the PDE simulation. Needed if time_dependent
+        = True. fem_data[i] is the PDE at time 0 + T/Nt * i
+    :param for_optimization. If time_dependent, it lets us switch between 2) and 3) above. True by default.
     :param verbose: if True, it displays the building status of the time dependent interpolator
     :return: a function, which when evaluated, gives the function evaluated at the desired space-time coordinates.
     '''
@@ -125,8 +169,8 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
         self.slope = self.hy / self.hx
 
         # Used to handle query points outside the original domain
-        self.max_pad = np.array([self.enx - 2, self.eny - 2])
-        self.min_pad = np.array([1, 1])
+        self.max_pad = np.array([self.x1, self.y1])
+        self.min_pad = np.array([self.x0, self.y0])
 
         # To differentiate which interpolator to return. We now generate helping variables that will make interpolation
         # faster later on
@@ -249,11 +293,6 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
         return T, Tx, Ty
 
     def get_interpolator_elliptic(self, M):
-        '''
-        It takes in a numpy 2d array of N points (Nx2) (or also a single 2D point, a numpy 1d array)
-        It returns the interpolated values at the query points.
-        For details about the functioning refer to the technical documentation.
-        '''
 
         # If a single query point
         if len(np.shape(M)) == 1:
@@ -261,8 +300,8 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
 
         # Getting the index of the rectangular cell and the type of the triangle, while also ensuring the query index
         # is admissible (and at the same time: being able to input any point we want)
+        M = np.clip(M,self.min_pad, self.max_pad)
         index_raw, type_raw = np.divmod(M - [self.ex0, self.ey0], [self.hx, self.hy])
-        index_raw = np.clip(index_raw, self.min_pad, self.max_pad)
         index_def = np.squeeze((index_raw[:, 0] + index_raw[:, 1] * self.enx)).astype(int)
         type_def = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
 
@@ -274,9 +313,6 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
         return np.squeeze(N / self.D)
 
     def get_interpolator_parabolic_dev(self, M, times=None, optimization_mode=False):
-        '''
-        TODO (leo); add documentation
-        '''
 
         # If a single query point
         M=np.array(M, ndmin=2)
@@ -290,8 +326,8 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
 
         # Getting the index of the rectangular cell and the type of the triangle, while also ensuring the query index
         # is admissible (and at the same time: being able to input any point we want)
+        M = np.clip(M, self.min_pad, self.max_pad)
         index_raw, type_raw = np.divmod(M - [self.ex0, self.ey0], [self.hx, self.hy])
-        index_raw = np.clip(index_raw, self.min_pad, self.max_pad)
         index_def = np.squeeze((index_raw[:, 0] + index_raw[:, 1] * self.enx)).astype(int)
         type_def = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
 
@@ -309,33 +345,25 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
         return np.squeeze(N / self.D)
 
     def get_interpolator_parabolic_opt(self, M, t_ind=None):
-        '''
-        TODO (leo); add documentation
-        '''
 
         # If a single query point
         if len(np.shape(M)) == 1:
             M = np.array([M])
 
         # Getting the index of the rectangular cell and the type of the triangle, while also ensuring the query index
-        # is admissible (and at the same time: being able to input any point we want)
+        # is admissible
+        M = np.clip(M, self.min_pad, self.max_pad)
         index_raw, type_raw = np.divmod(M - [self.ex0, self.ey0], [self.hx, self.hy])
-        index_raw = np.clip(index_raw, self.min_pad, self.max_pad)
         index_def = np.squeeze((index_raw[:, 0] + index_raw[:, 1] * self.enx)).astype(int)
         type_def = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
 
         # Interpolation (time dependent version)
         if t_ind is None:
-            row_indices = self.t_ind_all
+            t_ind = self.t_ind_all
             # And M must have Nt+1 rows
-        else:
-            # Handling a single time
-            if isinstance(t_ind, int):
-                t_ind = [t_ind]
-            row_indices = np.array(t_ind)[:, None]
-        Px = self.Tx_glo[row_indices, index_def, type_def] * M[:, 0]
-        Py = self.Ty_glo[row_indices, index_def, type_def] * M[:, 1]
-        N = self.T_glo[row_indices, index_def, type_def] + Px + Py
+        Px = self.Tx_glo[t_ind, index_def, type_def] * M[:, 0]
+        Py = self.Ty_glo[t_ind, index_def, type_def] * M[:, 1]
+        N = self.T_glo[t_ind, index_def, type_def] + Px + Py
         return np.squeeze(N / self.D)
 
     def __call__(self, *args, **kwargs):
