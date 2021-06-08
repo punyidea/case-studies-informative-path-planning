@@ -273,21 +273,19 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
 
         return np.squeeze(N / self.D)
 
-    def get_interpolator_parabolic_time_interpolation(self, M, times=None):
+    def get_interpolator_parabolic_dev(self, M, times=None, optimization_mode=False):
         '''
         TODO (leo); add documentation
         '''
 
         # If a single query point
-        if len(np.shape(M)) == 1:
-            M = np.array([M])
+        M=np.array(M, ndmin=2)
         if times is None:
             # We condider exactly all the timestamps from the heat equation simulation
             t_ind = self.t_ind_all # all time indices
         else:
-            # Handling a single time or a list of times
-            if len(np.shape(M)) == 1:
-                M = np.array([M])
+            # If a single query time
+            times = np.array(times, ndmin=1)
             t_ind = np.clip(np.round(times/self.dt), 0, self.Nt).astype(int).tolist()
 
         # Getting the index of the rectangular cell and the type of the triangle, while also ensuring the query index
@@ -298,11 +296,46 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
         type_def = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
 
         # Interpolation (time dependent version)
-        row_indices = np.array(t_ind)[:, None]
+        if optimization_mode:
+            # If this interpolator is run in optimization mode, then M must be of size times and we
+            # evaluate at timestamp i, the interpolator at point i
+            row_indices = t_ind
+        else:
+            row_indices = np.array(t_ind)[:, None]
         Px = self.Tx_glo[row_indices, index_def, type_def] * M[:, 0]
         Py = self.Ty_glo[row_indices, index_def, type_def] * M[:, 1]
         N = self.T_glo[row_indices, index_def, type_def] + Px + Py
 
+        return np.squeeze(N / self.D)
+
+    def get_interpolator_parabolic_opt(self, M, t_ind=None):
+        '''
+        TODO (leo); add documentation
+        '''
+
+        # If a single query point
+        if len(np.shape(M)) == 1:
+            M = np.array([M])
+
+        # Getting the index of the rectangular cell and the type of the triangle, while also ensuring the query index
+        # is admissible (and at the same time: being able to input any point we want)
+        index_raw, type_raw = np.divmod(M - [self.ex0, self.ey0], [self.hx, self.hy])
+        index_raw = np.clip(index_raw, self.min_pad, self.max_pad)
+        index_def = np.squeeze((index_raw[:, 0] + index_raw[:, 1] * self.enx)).astype(int)
+        type_def = np.squeeze(type_raw[:, 0] * self.slope < type_raw[:, 1]).astype(int)  # If 0, dw triangle
+
+        # Interpolation (time dependent version)
+        if t_ind is None:
+            row_indices = self.t_ind_all
+            # And M must have Nt+1 rows
+        else:
+            # Handling a single time
+            if isinstance(t_ind, int):
+                t_ind = [t_ind]
+            row_indices = np.array(t_ind)[:, None]
+        Px = self.Tx_glo[row_indices, index_def, type_def] * M[:, 0]
+        Py = self.Ty_glo[row_indices, index_def, type_def] * M[:, 1]
+        N = self.T_glo[row_indices, index_def, type_def] + Px + Py
         return np.squeeze(N / self.D)
 
     def __call__(self, *args, **kwargs):
@@ -312,10 +345,10 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
         if not self.time_dependent:
             return self.get_interpolator_elliptic(*args, **kwargs)
         else:
-            return self.get_interpolator_parabolic_time_interpolation(*args, **kwargs)
-
-    # def get_scipy_interpolator(self):
-    #    return RegularGridInterpolator((self.x, self.y), self.U)
+            if self.for_optimization:
+                return self.get_interpolator_parabolic_opt(*args, **kwargs)
+            else:
+                return self.get_interpolator_parabolic_dev(*args, **kwargs)
 
 
 class FenicsRectangleVecInterpolator(RectangleInterpolator):
