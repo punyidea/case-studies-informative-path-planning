@@ -47,13 +47,15 @@ class RectangleInterpolator():
         self.hy = (P1[1] - P0[1]) / ny
 
         # Some temporal initializations
-        if time_dependent and (T_fin is None or Nt is None):
-            raise Exception('Please insert the final time and the number of time intervals.')
-        else:
-            self.T_fin=T_fin
-            self.Nt=Nt
+        if time_dependent:
+            if (T_fin is None or Nt is None):
+                raise Exception('Please insert the final time and the number of time intervals.')
             if len(fem_data) != Nt + 1:
                 raise Exception('There must be Nt + 1 functions supplied for the Nt + 1 timestamps.')
+
+        self.T_fin=T_fin
+        self.Nt=Nt
+
 
         # Variable deciding if the returned interpolator will have some additional functionalities or not
         self.for_optimization = for_optimization
