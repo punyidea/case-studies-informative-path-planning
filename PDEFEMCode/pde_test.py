@@ -584,6 +584,59 @@ class TestInterpolators(unittest.TestCase):
         np.testing.assert_almost_equal(affine_approxim(coords),native_eval_grad(coords), decimal=6)
 
 
+    def test_fenics_grad_interpolator_rectangle_right_parabolic(self):
+        nx = 5
+        ny = 6
+        P0 = np.array([4, 1])
+        P1 = np.array([10, 23])
+
+        Nt = 1
+        mesh, fn_space = pde_utils.setup_rectangular_function_space(nx, ny, P0, P1)
+
+        u_fenics_list = [fc.interpolate(fc.Expression('x[0]+pow(x[0],3)/42+pow(x[1],2)', degree=1), fn_space),
+                         fc.interpolate(fc.Expression('x[0]+pow(x[0],2)/42+pow(x[1],3)', degree=1), fn_space)
+                         ]
+        u_fenics_grad_list = [pde_utils.fenics_grad(mesh, u_fenics) for u_fenics in u_fenics_list]
+        grad_approxim = PDEFEMCode.interface.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_fenics_grad_list,
+                                                                            time_dependent=True, Nt=Nt,T_fin=1)
+
+        #2D coords.
+        X, Y = np.meshgrid(np.linspace(4.01, 9.995, 24),
+                           np.linspace(2.01, 22.995, 13), indexing='ij')
+        coords = np.stack((X, Y), axis=-1)
+        np.testing.assert_almost_equal(grad_approxim(coords,0) -
+                                       PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[0], coords),
+                                       0, decimal=6)
+
+        coords = np.stack((np.linspace(4.01, 9.995, 24), np.linspace(2.01, 9.995, 24)), axis=-1)
+        np.testing.assert_almost_equal(grad_approxim(coords,.75) -
+                                       PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[1], coords),
+                                       0, decimal=6)
+        #invalid time
+        try:
+            grad_approxim(coords,1.2)
+        except ValueError:
+            pass
+
+        #1d coords
+        eps = 1e-4
+        n_test = 29
+        coords = np.random.uniform(P0+eps,P1-eps,(n_test,2))
+        t = np.linspace(0,1,n_test)
+
+        approx_coords = grad_approxim(coords,t)
+
+        np.testing.assert_almost_equal(approx_coords[t <=.5,:],
+PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[0], coords[t <=.5,:]),
+                                       )
+
+        np.testing.assert_almost_equal(approx_coords[t > .5, :],
+                                       PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[1],
+                                                                                   coords[t > .5, :]),
+                                       )
+
+
+
 
 class TestFenicsFnWrap(unittest.TestCase):
     '''

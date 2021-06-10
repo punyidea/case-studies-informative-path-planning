@@ -52,6 +52,8 @@ class RectangleInterpolator():
         else:
             self.T_fin=T_fin
             self.Nt=Nt
+            if len(fem_data) != Nt + 1:
+                raise Exception('There must be Nt + 1 functions supplied for the Nt + 1 timestamps.')
 
         # Variable deciding if the returned interpolator will have some additional functionalities or not
         self.for_optimization = for_optimization
@@ -71,7 +73,7 @@ class RectangleInterpolator():
 
         self.pre_computations(fem_data)
 
-    def pre_computations(self):
+    def pre_computations(self,u):
         pass
 
     def __call__(self, coords):
@@ -426,14 +428,36 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
         UL_coords = low_cell_coords + [.25 * self.hx, .5 * self.hy]
         T_coords = np.stack((BR_coords, UL_coords), axis=-2)
 
-        self.T_grads = native_fenics_eval_vec(grad_u, T_coords)
+        if not self.time_dependent:
+            self.T_grads = native_fenics_eval_vec(grad_u, T_coords)
+        else:
+            vec_u_list = vec_u # we are actually given a list of functions.
+            self.T_grads = np.zeros((len(vec_u),) + T_coords.shape)
+            for ind,vec_u in enumerate(vec_u_list):
+                self.T_grads[ind,...] = native_fenics_eval_vec(vec_u,T_coords)
+            self.dt = self.T_fin / self.Nt
 
-    def __call__(self, coords):
+
+    def __call__(self, coords, times = None):
         '''
-        TODO: (Victor) add time dependent solution, with a simple round.
+        Todo: clean up function doc.
         When called, returns the gradient of the point on the mesh.
-        :param coords: coordinates on which we'd like to shape (don't care) by 2
-        :return: gradient of the interpolator, shape  (coords.shape[:-1} x2)
+        :param coords: coordinates on which we'd like to shape (don't_care_coords) by 2
+        :param times: (if time dependent) must be either:
+            - shape (,), or a scalar.
+                Then all time is assumed to be the same.
+            - the same shape as coords.shape[:-1]
+                Then each coordinate point has its unique time.
+                evaluate grad_f(coords[i,j,k,...]) at time[i,j,k,...]
+            BELOW FEATURE IS NOT EXPECTED TO BE USED THAT MUCH
+             below line written in tuple form. + means concatenation
+            v v v v
+            - shape = (don't_care_time) + tuple(np.ones_like(coords.shape[:-1))
+            In this case, gradient is evaluated at each coordinate AND each time, separately.
+            resulting out array is of shape
+            (don't_care_time) from time + coords.shape
+        :return: gradient of the interpolator, shape  (coords.shape[:-1] + (2,) ).
+            If time dependent, times may impact size of array.
         '''
         # coords_shape = coords.shape
         # coords_rs = np.reshape(coords, (-1, coords_shape[-1]))
@@ -452,8 +476,19 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
         # if type_def is 0, it is a BR_triangle
         type_def = (frac_index[..., 0] < frac_index[..., 1]).astype(int)  # If 0, dw triangle
 
-        out_arr = self.T_grads[index_int[..., 0], index_int[..., 1], type_def, :]
-        out_arr[oob] = 0
+        if not self.time_dependent:
+            out_arr = self.T_grads[index_int[..., 0], index_int[..., 1], type_def, :]
+            out_arr[oob] = 0
+        else:
+            if times is None:
+                raise ValueError('Interpolation was said to be time dependent. No time was provided.')
+            eps = 1e-5
+            time_ind = times/self.dt
+            if np.any(np.logical_or(time_ind < 0, time_ind > self.Nt + eps)):
+                raise ValueError('A time supplied was out of bounds.')
+            time_ind = np.round(time_ind).astype(int)
+            out_arr = self.T_grads[time_ind,index_int[..., 0], index_int[..., 1], type_def, :]
+
         #out_shape = coords_shape[:-1] + (2,)
         return out_arr
 
