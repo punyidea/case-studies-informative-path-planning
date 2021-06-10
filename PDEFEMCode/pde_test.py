@@ -452,7 +452,7 @@ class TestInterpolators(unittest.TestCase):
         P0 = np.array([4, 1])
         P1 = np.array([10, 23])
         mesh, fn_space = pde_utils.setup_rectangular_function_space(nx, ny, P0, P1)
-        T = 1
+        T_fin = 1
         Nt = 2
 
         F1 = fc.interpolate(fc.Expression('x[0]+pow(x[1],2)', degree=1), fn_space)
@@ -502,7 +502,7 @@ class TestInterpolators(unittest.TestCase):
         np.testing.assert_almost_equal(np.max(np.abs(mine - not_mine)), 0, decimal=8)
 
         # Now a test on the optimization version
-        wrapO = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T=T, Nt=Nt, time_dependent=True,
+        wrapO = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T_fin=T_fin, Nt=Nt, time_dependent=True,
                                                          for_optimization=True, verbose=True)
         # Test without explicit indices
         mineO = wrapO(P[[0, 1, 2], :])
