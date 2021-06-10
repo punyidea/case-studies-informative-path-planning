@@ -387,7 +387,7 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
     NOTE: DEPENDENT ON USING RECTANGULAR MESH WITH UP/RIGHT diagonals.
     ASSUMES THE FUNCTION IS PIECEWISE CONSTANT ON MESH ELEMENTS (i.e. fn_space, 'DG',0),
         like the gradient of a function on Lagrangian "hat" elements.
-    TODO: (Victor) Mention behavior outside of bounds.
+    When out of bounds
 
     Variables.
     :param mesh: the fenics mesh object that we used.
@@ -435,11 +435,13 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
         :param coords: coordinates on which we'd like to shape (don't care) by 2
         :return: gradient of the interpolator, shape  (coords.shape[:-1} x2)
         '''
-        coords_shape = coords.shape
-        coords_rs = np.reshape(coords, (-1, coords_shape[-1]))
+        # coords_shape = coords.shape
+        # coords_rs = np.reshape(coords, (-1, coords_shape[-1]))
 
-        index_float = (coords_rs - [self.x0, self.y0]) / [self.hx, self.hy]
-        eps = 1e-1
+        index_float = (coords - [self.x0, self.y0]) / [self.hx, self.hy]
+        eps = 1e-4
+        oob = np.logical_or(index_float < [0,0], index_float > [self.nx,self.ny])
+
         index_float = np.clip(index_float, [0, 0], [self.nx - eps, self.ny - eps])
         # assert((index_float<=[self.nx,self.ny]).all())# are we in bounds?
         # assert((index_float>=0).all()) #are we in bounds?
@@ -448,11 +450,12 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
         index_int = index_int.astype(int)
 
         # if type_def is 0, it is a BR_triangle
-        type_def = np.squeeze(frac_index[:, 0] < frac_index[:, 1]).astype(int)  # If 0, dw triangle
+        type_def = (frac_index[..., 0] < frac_index[..., 1]).astype(int)  # If 0, dw triangle
 
-        out_arr = self.T_grads[index_int[:, 0], index_int[:, 1], type_def, :]
-        out_shape = coords_shape[:-1] + (2,)
-        return out_arr.reshape(out_shape)
+        out_arr = self.T_grads[index_int[..., 0], index_int[..., 1], type_def, :]
+        out_arr[oob] = 0
+        #out_shape = coords_shape[:-1] + (2,)
+        return out_arr
 
 
 def native_fenics_eval_scalar(u_fenics, coords):

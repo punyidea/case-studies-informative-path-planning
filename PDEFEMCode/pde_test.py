@@ -14,8 +14,9 @@ import os
 def grad_hat_ref(X, Y):
     X_center, Y_center = 0.5 - X, 0.5 - Y
     Y_geq_X = np.abs(Y_center) >= np.abs(X_center)
-    return np.array([0, 2]) * ((Y_geq_X) * np.sign(Y_center))[..., np.newaxis] + \
-           np.array([2, 0]) * ((np.logical_not(Y_geq_X)) * np.sign(X_center))[..., np.newaxis]
+    in_b = np.logical_not( np.logical_or(np.abs(X_center)>0.5,np.abs(Y_center)>0.5) )
+    return np.array([0, 2]) * (np.logical_and(Y_geq_X,in_b) * np.sign(Y_center))[..., np.newaxis] + \
+           np.array([2, 0]) * (np.logical_and(np.logical_not(Y_geq_X),in_b) * np.sign(X_center))[..., np.newaxis]
 
 
 def eval_hat(X, Y):
@@ -573,6 +574,15 @@ class TestInterpolators(unittest.TestCase):
         np.testing.assert_almost_equal(grad_approxim(coords) -
                                        PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad, coords),
                                        0, decimal=6)
+        u_fenics_affine =  fc.interpolate(fc.Expression('1 + 3*x[0] + 4*x[1]', degree=1), fn_space)
+        u_fenics_aff_grad = pde_utils.fenics_grad(mesh, u_fenics_affine)
+        native_eval_grad =  lambda coords: np.ones_like(coords) * np.array([3, 4]) * \
+                                np.logical_and(coords >= P0,coords <= P1)
+        affine_approxim = PDEFEMCode.interface.FenicsRectangleVecInterpolator(nx,ny,P0,P1,u_fenics_aff_grad)
+        # test 1d random vector, with some out of bounds
+        coords = np.random.uniform(P0 - 1, P1 + 1, (100, 2))
+        np.testing.assert_almost_equal(affine_approxim(coords),native_eval_grad(coords), decimal=6)
+
 
 
 class TestFenicsFnWrap(unittest.TestCase):
@@ -615,13 +625,14 @@ class TestFenicsFnWrap(unittest.TestCase):
             calc_sol = PDEFEMCode.interface.native_fenics_eval_vec(grad_affine_fc, coords)
             np.testing.assert_array_almost_equal(calc_sol, ref_sol)
 
-        affine_grad_ref_f = lambda X, Y: np.ones_like(X)[..., np.newaxis] * np.array([3, 4])
+        affine_grad_ref_f = lambda X, Y: np.ones_like(X)[..., np.newaxis] * np.array([3, 4]) * \
+                            np.logical_and(np.abs(X[...,np.newaxis]-0.5) <= .5,np.abs(Y[...,np.newaxis]-0.5) <= .5 )
         affine_exp = fc.Expression('1 + 3*x[0] + 4*x[1]',
                                    element=self.fn_space.ufl_element())
         affine_fc = fc.interpolate(affine_exp, self.fn_space)
         grad_affine_fc = pde_utils.fenics_grad(self.mesh, affine_fc)
         # test random vectors
-        X, Y = np.random.uniform(0, 1, (2, 5))
+        X, Y = np.random.uniform(-.5, 1.5, (2, 50))
         test_xy(X, Y)
 
         # test 2d grid.
@@ -631,6 +642,8 @@ class TestFenicsFnWrap(unittest.TestCase):
         # test point
         X, Y = np.array([0.3, .2])
         test_xy(X, Y)
+
+
 
     def test_fenics_grad_wrap_hat(self):
         def test_xy(X, Y):
