@@ -391,7 +391,8 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
     NOTE: DEPENDENT ON USING RECTANGULAR MESH WITH UP/RIGHT diagonals.
     ASSUMES THE FUNCTION IS PIECEWISE CONSTANT ON MESH ELEMENTS (i.e. fn_space, 'DG',0),
         like the gradient of a function on Lagrangian "hat" elements.
-    When out of bounds
+    When out of bounds, the function sets the gradient in the normal direction to the boundary to be 0.
+        This is consistent with homogeneous Neumann boundary conditions.
 
     Variables.
     :param mesh: the fenics mesh object that we used.
@@ -405,10 +406,16 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
     Above, coords is shape (don't care x 2), to imitate shape of native fenics caller.
     #CALL VARS (coords). See __call__()
 
-    Use case:
+    Use case (time independent):
         u_grad      = fenics_grad(mesh,u_fenics)
-        grad_fn     = FenicsRectangleGradInterpolator(nx, ny, P0, P1, u_grad)
+        grad_interp     = FenicsRectangleGradInterpolator(nx, ny, P0, P1, u_grad)
         grad_eval   = grad_fn(coords)
+
+    Use case (time dependent):
+        u_grad_list = [fenics_grad(mesh, u_fenics) for u_fenics in u_fenics_list]
+        grad_fn     = FenicsRectangleGradInterpolator(nx, ny, P0, P1, u_grad_list,
+                                                time_dependent=True, Nt = len(u_grad_list)-1,T_fin = 1)
+        grad_eval   = grad_fn(coords,t)
     '''
 
     def pre_computations(self, vec_u):
@@ -444,6 +451,8 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
         '''
         Todo:  (victor) clean up function doc.
         When called, returns the gradient of the point on the mesh.
+        If time-dependent, performs nearest-neighbor-in-time interpolation.
+
         :param coords: coordinates on which we'd like to shape (don't_care_coords) by 2
         :param times: (if time dependent) must be either:
             - shape (,), or a scalar.
@@ -480,17 +489,18 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
 
         if not self.time_dependent:
             out_arr = self.T_grads[index_int[..., 0], index_int[..., 1], type_def, :]
-            out_arr[oob] = 0
+
         else:
             if times is None:
                 raise ValueError('Interpolation was said to be time dependent. No time was provided.')
             eps = 1e-5
             time_ind = times/self.dt
             if np.any(np.logical_or(time_ind < 0, time_ind > self.Nt + eps)):
-                raise ValueError('A time supplied was out of bounds.')
+                raise ValueError('A time supplied was out of bounds. Check that times are in interval [0,{}]'.format(self.T_fin))
             time_ind = np.round(time_ind).astype(int)
             out_arr = self.T_grads[time_ind,index_int[..., 0], index_int[..., 1], type_def, :]
 
+        out_arr[..., oob] = 0
         #out_shape = coords_shape[:-1] + (2,)
         return out_arr
 

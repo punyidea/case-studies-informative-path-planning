@@ -617,6 +617,8 @@ class TestInterpolators(unittest.TestCase):
             grad_approxim(coords,1.2)
         except ValueError:
             pass
+        else:
+            raise Exception('Did not raise exception with bad time.')
 
         #1d coords
         eps = 1e-4
@@ -624,16 +626,24 @@ class TestInterpolators(unittest.TestCase):
         coords = np.random.uniform(P0+eps,P1-eps,(n_test,2))
         t = np.linspace(0,1,n_test)
 
-        approx_coords = grad_approxim(coords,t)
+        approx_grad_eval = grad_approxim(coords,t)
 
-        np.testing.assert_almost_equal(approx_coords[t <=.5,:],
+        np.testing.assert_almost_equal(approx_grad_eval[t <=.5,:],
 PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[0], coords[t <=.5,:]),
                                        )
 
-        np.testing.assert_almost_equal(approx_coords[t > .5, :],
+        np.testing.assert_almost_equal(approx_grad_eval[t > .5, :],
                                        PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[1],
                                                                                    coords[t > .5, :]),
                                        )
+
+        #three points, four times. Check we are out of bounds in the correct places.
+        coords = np.array([[2,15],[4,0],[3,200]])
+        times = np.random.uniform(0,1,(4,1))
+        approx_grad_eval = grad_approxim(coords,times)
+        np.testing.assert_array_equal(approx_grad_eval[:,1:,1],0)
+        np.testing.assert_array_equal(approx_grad_eval[:,[0,2],0],0)
+
 
 
 
