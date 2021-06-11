@@ -442,7 +442,7 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
 
     def __call__(self, coords, times = None):
         '''
-        Todo: clean up function doc.
+        Todo:  (victor) clean up function doc.
         When called, returns the gradient of the point on the mesh.
         :param coords: coordinates on which we'd like to shape (don't_care_coords) by 2
         :param times: (if time dependent) must be either:
