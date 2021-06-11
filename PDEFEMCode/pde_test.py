@@ -14,8 +14,9 @@ import os
 def grad_hat_ref(X, Y):
     X_center, Y_center = 0.5 - X, 0.5 - Y
     Y_geq_X = np.abs(Y_center) >= np.abs(X_center)
-    return np.array([0, 2]) * ((Y_geq_X) * np.sign(Y_center))[..., np.newaxis] + \
-           np.array([2, 0]) * ((np.logical_not(Y_geq_X)) * np.sign(X_center))[..., np.newaxis]
+    in_b = np.logical_not( np.logical_or(np.abs(X_center)>0.5,np.abs(Y_center)>0.5) )
+    return np.array([0, 2]) * (np.logical_and(Y_geq_X,in_b) * np.sign(Y_center))[..., np.newaxis] + \
+           np.array([2, 0]) * (np.logical_and(np.logical_not(Y_geq_X),in_b) * np.sign(X_center))[..., np.newaxis]
 
 
 def eval_hat(X, Y):
@@ -451,7 +452,7 @@ class TestInterpolators(unittest.TestCase):
         P0 = np.array([4, 1])
         P1 = np.array([10, 23])
         mesh, fn_space = pde_utils.setup_rectangular_function_space(nx, ny, P0, P1)
-        T = 1
+        T_fin = 1
         Nt = 2
 
         F1 = fc.interpolate(fc.Expression('x[0]+pow(x[1],2)', degree=1), fn_space)
@@ -460,7 +461,7 @@ class TestInterpolators(unittest.TestCase):
         list_fenics = [F1, F2, F3]
 
         # Note, for very 'high' functions, the difference between me and Fenics is O(1e-6), instead of O(1e-13)
-        wrap = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T=T, Nt=Nt, time_dependent=True,
+        wrap = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T_fin=T_fin, Nt=Nt, time_dependent=True,
                                                         for_optimization=False, verbose=True)
 
         P = np.array([[5.1, 22], [10, 18], [8, 23], [9.5, 1.1], [10, 2.5], [10, 23]])
@@ -501,7 +502,7 @@ class TestInterpolators(unittest.TestCase):
         np.testing.assert_almost_equal(np.max(np.abs(mine - not_mine)), 0, decimal=8)
 
         # Now a test on the optimization version
-        wrapO = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T=T, Nt=Nt, time_dependent=True,
+        wrapO = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T_fin=T_fin, Nt=Nt, time_dependent=True,
                                                          for_optimization=True, verbose=True)
         # Test without explicit indices
         mineO = wrapO(P[[0, 1, 2], :])
@@ -573,6 +574,78 @@ class TestInterpolators(unittest.TestCase):
         np.testing.assert_almost_equal(grad_approxim(coords) -
                                        PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad, coords),
                                        0, decimal=6)
+        u_fenics_affine =  fc.interpolate(fc.Expression('1 + 3*x[0] + 4*x[1]', degree=1), fn_space)
+        u_fenics_aff_grad = pde_utils.fenics_grad(mesh, u_fenics_affine)
+        native_eval_grad =  lambda coords: np.ones_like(coords) * np.array([3, 4]) * \
+                                np.logical_and(coords >= P0,coords <= P1)
+        affine_approxim = PDEFEMCode.interface.FenicsRectangleVecInterpolator(nx,ny,P0,P1,u_fenics_aff_grad)
+        # test 1d random vector, with some out of bounds
+        coords = np.random.uniform(P0 - 1, P1 + 1, (100, 2))
+        np.testing.assert_almost_equal(affine_approxim(coords),native_eval_grad(coords), decimal=6)
+
+
+    def test_fenics_grad_interpolator_rectangle_right_parabolic(self):
+        nx = 5
+        ny = 6
+        P0 = np.array([4, 1])
+        P1 = np.array([10, 23])
+
+        Nt = 1
+        mesh, fn_space = pde_utils.setup_rectangular_function_space(nx, ny, P0, P1)
+
+        u_fenics_list = [fc.interpolate(fc.Expression('x[0]+pow(x[0],3)/42+pow(x[1],2)', degree=1), fn_space),
+                         fc.interpolate(fc.Expression('x[0]+pow(x[0],2)/42+pow(x[1],3)', degree=1), fn_space)
+                         ]
+        u_fenics_grad_list = [pde_utils.fenics_grad(mesh, u_fenics) for u_fenics in u_fenics_list]
+        grad_approxim = PDEFEMCode.interface.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_fenics_grad_list,
+                                                                            time_dependent=True, Nt=Nt,T_fin=1)
+
+        #2D coords.
+        X, Y = np.meshgrid(np.linspace(4.01, 9.995, 24),
+                           np.linspace(2.01, 22.995, 13), indexing='ij')
+        coords = np.stack((X, Y), axis=-1)
+        np.testing.assert_almost_equal(grad_approxim(coords,0) -
+                                       PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[0], coords),
+                                       0, decimal=6)
+
+        coords = np.stack((np.linspace(4.01, 9.995, 24), np.linspace(2.01, 9.995, 24)), axis=-1)
+        np.testing.assert_almost_equal(grad_approxim(coords,.75) -
+                                       PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[1], coords),
+                                       0, decimal=6)
+        #invalid time
+        try:
+            grad_approxim(coords,1.2)
+        except ValueError:
+            pass
+        else:
+            raise Exception('Did not raise exception with bad time.')
+
+        #1d coords
+        eps = 1e-4
+        n_test = 29
+        coords = np.random.uniform(P0+eps,P1-eps,(n_test,2))
+        t = np.linspace(0,1,n_test)
+
+        approx_grad_eval = grad_approxim(coords,t)
+
+        np.testing.assert_almost_equal(approx_grad_eval[t <=.5,:],
+PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[0], coords[t <=.5,:]),
+                                       )
+
+        np.testing.assert_almost_equal(approx_grad_eval[t > .5, :],
+                                       PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[1],
+                                                                                   coords[t > .5, :]),
+                                       )
+
+        #three points, four times. Check we are out of bounds in the correct places.
+        coords = np.array([[2,15],[4,0],[3,200]])
+        times = np.random.uniform(0,1,(4,1))
+        approx_grad_eval = grad_approxim(coords,times)
+        np.testing.assert_array_equal(approx_grad_eval[:,1:,1],0)
+        np.testing.assert_array_equal(approx_grad_eval[:,[0,2],0],0)
+
+
+
 
 
 class TestFenicsFnWrap(unittest.TestCase):
@@ -615,13 +688,14 @@ class TestFenicsFnWrap(unittest.TestCase):
             calc_sol = PDEFEMCode.interface.native_fenics_eval_vec(grad_affine_fc, coords)
             np.testing.assert_array_almost_equal(calc_sol, ref_sol)
 
-        affine_grad_ref_f = lambda X, Y: np.ones_like(X)[..., np.newaxis] * np.array([3, 4])
+        affine_grad_ref_f = lambda X, Y: np.ones_like(X)[..., np.newaxis] * np.array([3, 4]) * \
+                            np.logical_and(np.abs(X[...,np.newaxis]-0.5) <= .5,np.abs(Y[...,np.newaxis]-0.5) <= .5 )
         affine_exp = fc.Expression('1 + 3*x[0] + 4*x[1]',
                                    element=self.fn_space.ufl_element())
         affine_fc = fc.interpolate(affine_exp, self.fn_space)
         grad_affine_fc = pde_utils.fenics_grad(self.mesh, affine_fc)
         # test random vectors
-        X, Y = np.random.uniform(0, 1, (2, 5))
+        X, Y = np.random.uniform(.001, 0.95, (2, 50))
         test_xy(X, Y)
 
         # test 2d grid.
@@ -631,6 +705,8 @@ class TestFenicsFnWrap(unittest.TestCase):
         # test point
         X, Y = np.array([0.3, .2])
         test_xy(X, Y)
+
+
 
     def test_fenics_grad_wrap_hat(self):
         def test_xy(X, Y):

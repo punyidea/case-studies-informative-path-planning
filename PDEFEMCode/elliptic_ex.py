@@ -65,7 +65,7 @@ pde_IO.pickle_save(out_folder,out_file,param_save)
 # import matplotlib.pyplot as plt
 # coords = np.stack(np.meshgrid(np.linspace(0,1,200),np.linspace(0,1,200)),axis = -1)
 # coords_rs = coords.reshape(-1,2)
-# f_eval = f.get_interpolator(coords_rs)
+# f_eval = f(coords_rs)
 # plt.imshow(f_eval.reshape(200,200))
 # #
 # grad_f_eval = grad_f(coords) #grad_f(coords_rs) works fine too

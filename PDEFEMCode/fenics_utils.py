@@ -49,19 +49,19 @@ def setup_rectangular_function_space(nx, ny, P0, P1):
     return mesh, fn_space
 
 
-def setup_time_discretization(T, Nt):
+def setup_time_discretization(T_fin, Nt):
     """
 
-    :param T: because we study the PDE in [0,T]
-    :param Nt: for time discretization, we only look at a uniform dicretization of [0,T] of Nt+1 instants
+    :param T_fin: because we study the PDE in [0,T_fin]
+    :param Nt: for time discretization, we only look at a uniform dicretization of [0,T_fin] of Nt+1 instants
 
     :return:
-        - dt: dt  = T/Nt
-        - times: a vector of Nt+1 evenly spaced time instants 0, dt, 2*dt, ... T
+        - dt: dt  = T_fin/Nt
+        - times: a vector of Nt+1 evenly spaced time instants 0, dt, 2*dt, ... T_fin
     """
     # Create mesh and define function space
     dt = 1 / Nt
-    times = np.linspace(0, T, Nt + 1)
+    times = np.linspace(0, T_fin, Nt + 1)
     return dt, times
 
 def variational_formulation(u_trial, v_test, LHS, RHS, RHS_fn, LHS_args=None, RHS_args=None):
