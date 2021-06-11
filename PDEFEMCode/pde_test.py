@@ -461,7 +461,7 @@ class TestInterpolators(unittest.TestCase):
         list_fenics = [F1, F2, F3]
 
         # Note, for very 'high' functions, the difference between me and Fenics is O(1e-6), instead of O(1e-13)
-        wrap = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T=T, Nt=Nt, time_dependent=True,
+        wrap = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T_fin=T_fin, Nt=Nt, time_dependent=True,
                                                         for_optimization=False, verbose=True)
 
         P = np.array([[5.1, 22], [10, 18], [8, 23], [9.5, 1.1], [10, 2.5], [10, 23]])
@@ -685,7 +685,7 @@ class TestFenicsFnWrap(unittest.TestCase):
         affine_fc = fc.interpolate(affine_exp, self.fn_space)
         grad_affine_fc = pde_utils.fenics_grad(self.mesh, affine_fc)
         # test random vectors
-        X, Y = np.random.uniform(-.5, 1.5, (2, 50))
+        X, Y = np.random.uniform(.001, 0.95, (2, 50))
         test_xy(X, Y)
 
         # test 2d grid.
