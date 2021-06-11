@@ -508,7 +508,7 @@ class TestInterpolators(unittest.TestCase):
         np.testing.assert_almost_equal(np.max(np.abs(mineO - not_mine)), 0, decimal=8)
 
         # Test with explicit indices
-        mineO = wrapO(P[[[2,0,0]], :], 2)
+        mineO = wrapO(P[[2,0,0], :], [2, 0, 0])
         np.testing.assert_almost_equal(np.max(np.abs(mineO - not_mine[[2,0,0]])), 0, decimal=8)
 
     def test_elliptic_interp(self):
