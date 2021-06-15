@@ -309,6 +309,18 @@ class TestPDEParabolicSolver(TestCase):
         ooc = self.compute_ooc_space(err_tot)
         np.testing.assert_almost_equal(ooc[-1], 2, 0.05)
 
+        # Now we also let the time vary
+        # Setting up a test for the order of convergence
+        self.ooc_arrays(4, 7, 10)
+
+        # Computing the error at time t_err
+        err_type = 'L2'  # error to be outputted ('uni', 'L2', 'H1')
+        t_err = 0.5
+        err_tot = self.solve_obtain_error(RHS_fn, u_ref, t_err, err_type, verbose=True)
+
+        # Testing the order of convergence
+        ooc = self.compute_ooc_space(err_tot)
+        np.testing.assert_almost_equal(ooc[-1], 2, 0.05)
 
     def test_constant(self):
 
