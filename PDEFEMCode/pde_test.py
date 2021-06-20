@@ -182,31 +182,37 @@ class TestPDEParabolicSolver(TestCase):
             int)  # vector of total time steps, per time we do a time discretization
         self.N_array = np.ceil(np.sqrt(self.time_array)).astype(int)  # vector of mesh sizes
 
-    def time_independence_arrays(self, D, ip, fp, N):
+    def time_independence_arrays(self, D, ip, fp, Nt):
         '''
-        Returns time and space discretization parameters, if we want to test that the computed error doesn't depend on
-        time
+        Returns time and space discretization parameters, if we want to test that the computed error is not influenced
+        by the time discretization
 
         :param D: number of times we'll solve the heat equation
-        :param ip: first time discretization (uniform, with 2^ip subdivisions)
-        :param fp: lst time discretization (uniform, with 2^fp subdivisions)
-        :param N: only one spatial mesh size
+        :param ip: first space discretization (with 2^ip subdivisions per side)
+        :param fp: lst space discretization (with 2^fp subdivisions per side)
+        :param Nt: only one temporal size
 
         It computes:
-            time_array, i.e. a logspace array from 2^ip, to 2^fp, of D entries
-            N_array = repeated N to match the length of time_array
+            N_array, i.e. a logspace array from 2^ip, to 2^fp, of D entries
+            time_array = repeated Nt to match the length of N_array
         '''
 
         self.D = D  # how many times do we want to do solve our problem ?
         initial_power = ip
         final_power = fp
-        self.time_array = np.ceil(np.logspace(initial_power, final_power, D, base=2.0)).astype(
-            int)  # vector of total time steps, per time we do a time discretization
-        self.N_array = np.ceil(np.repeat([N], self.D)).astype(int)  # vector of mesh sizes
+        self.N_array = np.ceil(np.logspace(initial_power, final_power, D, base=2.0)).astype(int)
+        self.time_array = np.ceil(np.repeat([Nt], self.D)).astype(int)  # vector of time discretizations
 
     def compute_ooc(self, err, verbose=True):
         times = self.time_array
         ooc = - (np.log(err[1:]) - np.log(err[:-1])) / (np.log(times[1:]) - np.log(times[:-1]))
+        if verbose:
+            print('Order of convergence: ', ooc)
+        return ooc
+
+    def compute_ooc_space(self, err, verbose=True):
+        spaces = self.N_array
+        ooc = - (np.log(err[1:]) - np.log(err[:-1])) / (np.log(spaces[1:]) - np.log(spaces[:-1]))
         if verbose:
             print('Order of convergence: ', ooc)
         return ooc
@@ -284,24 +290,38 @@ class TestPDEParabolicSolver(TestCase):
     def test_easy_polynomial(self):
 
         '''
-        Expected behaviour: the L2 error shouldn't depend on the time discretization.
+        Expected behaviour: the L2 error should be O(h^2).
         '''
 
         RHS_fn = fc.Expression('3*pow(x[0],2) - 2*pow(x[0],3) + (3 - 2*x[1])*pow(x[1],2) + 12*t*(-1 + x[0] + x[1])',
                                degree=2, t=0)
         u_ref = fc.Expression('t*(3*pow(x[0],2) - 2*pow(x[0],3) + (3 - 2*x[1])*pow(x[1],2))', degree=2, t=0)
 
-        # Discretization parameters, the mesh doesn't change
-        self.time_independence_arrays(8, 7, 14, 20)
+        # Discretization parameters, the time discretization won't change
+        self.time_independence_arrays(4, 5, 7, 20)
 
         # Computing the error at time t_err
         err_type = 'L2'  # error to be outputted ('uni', 'L2', 'H1')
         t_err = 0.5
         err_tot = self.solve_obtain_error(RHS_fn, u_ref, t_err, err_type, verbose=True)
 
-        np.testing.assert_allclose(err_tot[-3:-1], np.mean(err_tot[-3:-1]), atol=1e-7, rtol=0)
+        # Quadratic convergence?
+        # Testing the order of convergence
+        ooc = self.compute_ooc_space(err_tot)
+        np.testing.assert_almost_equal(ooc[-1], 2, 0.05)
 
-        # TODO: (Leo) further testing here, ask Constantin and Thomas too
+        # Now we also let the time vary
+        # Setting up a test for the order of convergence
+        self.ooc_arrays(4, 7, 10)
+
+        # Computing the error at time t_err
+        err_type = 'L2'  # error to be outputted ('uni', 'L2', 'H1')
+        t_err = 0.5
+        err_tot = self.solve_obtain_error(RHS_fn, u_ref, t_err, err_type, verbose=True)
+
+        # Testing the order of convergence
+        ooc = self.compute_ooc_space(err_tot)
+        np.testing.assert_almost_equal(ooc[-1], 2, 0.05)
 
     def test_constant(self):
 
@@ -510,7 +530,7 @@ class TestInterpolators(unittest.TestCase):
         np.testing.assert_almost_equal(np.max(np.abs(mineO - not_mine)), 0, decimal=8)
 
         # Test with explicit indices
-        mineO = wrapO(P[[[2,0,0]], :], 2)
+        mineO = wrapO(P[[2,0,0], :], [2, 0, 0])
         np.testing.assert_almost_equal(np.max(np.abs(mineO - not_mine[[2,0,0]])), 0, decimal=8)
 
     def test_elliptic_interp(self):
