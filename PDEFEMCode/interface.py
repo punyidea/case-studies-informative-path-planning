@@ -1,6 +1,31 @@
 import os, pickle
 
 import numpy as np
+import typing
+import yaml
+from dataclasses import dataclass
+
+
+
+def yaml_load(fname):
+
+    with open(fname,'r') as filep:
+        par_obj = yaml.load(filep)
+    return par_obj
+
+
+@dataclass
+class RectMeshParams:
+    nx: int
+    ny: int
+    P0: 'typing.Iterable'
+    P1: 'typing.Iterable'
+
+@dataclass
+class IOParams:
+    out_file_prefix:   str
+    out_folder: str
+    in_file:    str
 
 
 def pickle_save(out_path, fname, obj_save, ext='.pkl'):
@@ -31,20 +56,21 @@ def pickle_load(fname, def_ext='.pkl'):
 
 class RectangleInterpolator():
     '''
-    This is an abstract class that stores common parameters of the gradient interpolator.
+    This is an abstract class that stores common parameters of the both custom interpolators.
+    Todo: include rmesh_p, move relevant parts of documentation from linear interpolator
     '''
 
-    def __init__(self, nx, ny, P0, P1, fem_data, T_fin=None, Nt=None, time_dependent=False, for_optimization=True, verbose=False):
+    def __init__(self, rmesh_p, fem_data, T_fin=None, Nt=None, time_dependent=False, for_optimization=True, verbose=False):
         # Some geometric initializations
         pass
-        self.nx = nx
-        self.ny = ny
-        self.x0 = P0[0]
-        self.y0 = P0[1]
-        self.x1 = P1[0]
-        self.y1 = P1[1]
-        self.hx = (P1[0] - P0[0]) / nx
-        self.hy = (P1[1] - P0[1]) / ny
+        self.nx = rmesh_p.nx
+        self.ny = rmesh_p.ny
+        self.x0 = rmesh_p.P0[0]
+        self.y0 = rmesh_p.P0[1]
+        self.x1 = rmesh_p.P1[0]
+        self.y1 = rmesh_p.P1[1]
+        self.hx = (self.x1- self.x0) / self.nx
+        self.hy = (self.y1 - self.y0) / self.ny
 
         # Some temporal initializations
         if time_dependent:
@@ -63,10 +89,10 @@ class RectangleInterpolator():
         # Now, we enlarge the mesh by one cell in every direction, to handle boundary points well
         self.enx = self.nx + 2
         self.eny = self.ny + 2
-        self.ex0 = P0[0]-self.hx
-        self.ey0 = P0[1]-self.hy
-        self.ex1 = P1[0]+self.hx
-        self.ey1 = P1[1]+self.hy
+        self.ex0 = self.x0-self.hx
+        self.ey0 = self.y0-self.hy
+        self.ex1 = self.x1+self.hx
+        self.ey1 = self.y1+self.hy
 
         # To differentiate which interpolator to return. We now generate helping variables that will make interpolation
         # faster later on

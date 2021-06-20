@@ -5,8 +5,60 @@ Documentation assumes that fenics 2019.1.0 is used, and imported by
 '''
 import fenics as fc
 import numpy as np
+from dataclasses import dataclass, field
 from scipy.interpolate import RegularGridInterpolator
 
+from PDEFEMCode.interface import RectMeshParams, IOParams
+
+def get_function_from_str(fname):
+    '''
+    See
+    https://web.archive.org/web/20210614165007/https://stackoverflow.com/questions/3061/calling-a-function-of-a-module-by-using-its-name-a-string
+    :param fname: A string version of the function which is inside of this file.
+    :return: The function as a function object.
+    '''
+    try:
+        fn = globals().copy()[fname]
+        return fn
+    except KeyError:
+        raise ValueError('The function {} was not defined in the fenics_utils file.'.format(fname))
+#todo (victor): document parameter structs.
+@dataclass
+class VarFormulationParams:
+    LHS_str: str
+    RHS_str: str
+    LHS: 'typing.Callable' = field(init=False)
+    RHS: 'typing.Callable' = field(init=False)
+    def __post_init__(self):
+        self.LHS = get_function_from_str(self.LHS_str)
+        self.RHS = get_function_from_str(self.RHS_str)
+
+
+@dataclass
+class EllipticVarFormsParams(VarFormulationParams):
+    rhs_exp_params: dict
+    rhs_expression_str: str
+    rhs_expression: 'typing.Callable' = field(init=False)
+    def __post_init__(self):
+        super().__post_init__()
+        self.rhs_expression = get_function_from_str(self.rhs_expression_str)
+
+
+@dataclass
+class EllipticRunParams:
+    rect_mesh: RectMeshParams
+    io: IOParams
+    var_form: EllipticVarFormsParams
+
+def yaml_parse_elliptic(par_obj,in_fname):
+
+    par_prep ={}
+    par_prep['var_form'] = EllipticVarFormsParams(**par_obj['var_form'])
+    par_prep['io'] = IOParams(in_file = in_fname, **par_obj['io'])
+    par_prep['rect_mesh'] = RectMeshParams(**par_obj['rect_mesh'])
+
+    ret_params = EllipticRunParams(**par_prep)
+    return ret_params
 
 def setup_unitsquare_function_space(n):
     """
@@ -27,8 +79,9 @@ def setup_unitsquare_function_space(n):
     fn_space = fc.FunctionSpace(mesh, 'Lagrange', 1)
     return mesh,fn_space
 
-def setup_rectangular_function_space(nx, ny, P0, P1):
+def setup_rectangular_function_space(rmesh_p):
     """
+    Todo (victor): rewrite params.
     Sets up the dicrete function space on a rectangle with lower left corner P0, upper right corner P1.
     This includes preparing the mesh and basis functions on the mesh.
 
@@ -44,7 +97,9 @@ def setup_rectangular_function_space(nx, ny, P0, P1):
         - fn_space, the FENICS function space of  linear FE on this mesh. The "hat functions" are used as a basis.
     """
     # Create mesh and define function space
-    mesh = fc.RectangleMesh(fc.Point(P0[0], P0[1]), fc.Point(P1[0], P1[1]), nx, ny)
+    mesh = fc.RectangleMesh(fc.Point(rmesh_p.P0[0], rmesh_p.P0[1]),
+                            fc.Point(rmesh_p.P1[0], rmesh_p.P1[1]),
+                            rmesh_p.nx, rmesh_p.ny)
     fn_space = fc.FunctionSpace(mesh, 'Lagrange', 1)
     return mesh, fn_space
 
@@ -257,4 +312,5 @@ def fenics_grad(mesh, u_fenics):
     gradspace = fc.VectorFunctionSpace(mesh,'DG',0) #discontinuous lagrange.
     grad_fc = fc.project(fc.grad(u_fenics),gradspace)
     return grad_fc
+
 
