@@ -441,14 +441,20 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
         T_coords = np.stack((BR_coords, UL_coords), axis=-2)
 
         if not self.time_dependent:
+            ndims = grad_u.value_dimension(0)
             self.T_grads = native_fenics_eval_vec(grad_u, T_coords)
         else:
             vec_u_list = vec_u # we are actually given a list of functions.
+            ndims = vec_u_list[0].value_dimension(0)
             self.T_grads = np.zeros((len(vec_u),) + T_coords.shape)
             for ind,vec_u in enumerate(vec_u_list):
+                if vec_u.value_dimension(0)!= ndims:
+                    raise ValueError(
+                        'The fenics functions in the list have mismatching '
+                        'dimensions between them (detected at index {}).'.format(ind))
                 self.T_grads[ind,...] = native_fenics_eval_vec(vec_u,T_coords)
             self.dt = self.T_fin / self.Nt
-
+        assert (ndims=>2) # we are in 2D, so the gradient (vector) function better have more than 1d!
 
     def __call__(self, coords, times = None):
         '''
@@ -503,7 +509,7 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
             time_ind = np.round(time_ind).astype(int)
             out_arr = self.T_grads[time_ind,index_int[..., 0], index_int[..., 1], type_def, :]
 
-        out_arr[..., oob] = 0
+        out_arr[..., oob] = 0 # set gradient to be 0 in out of bounds dimension.
         #out_shape = coords_shape[:-1] + (2,)
         return out_arr
 
