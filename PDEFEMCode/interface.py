@@ -249,9 +249,12 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
                 # If my query point is outside the original mesh, set u to zero. This won't affect the final result,
                 # as everything outside the original mesh is squashed onto the rectangle boundary. The interpolation
                 # then becomes a line interpolation of known u values
-                if x > self.x1+1e-12 or x < self.x0-1e-12 or y < self.y0-1e-12 or y > self.y1+1e-12:
+                if x > self.x1+self.hx/2 or x < self.x0-self.hx/2 or y < self.y0-self.hy/2 or y > self.y1+self.hy/2:
                     u_ij = 0
                 else:
+                    # Next two lines for robustness against rounding errors
+                    x = np.clip(x, self.x0, self.x1)
+                    y = np.clip(y, self.y0, self.y1)
                     u_ij = u([x, y])
 
                 if i > 0 and j < ny:
