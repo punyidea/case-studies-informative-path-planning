@@ -454,7 +454,7 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
                         'dimensions between them (detected at index {}).'.format(ind))
                 self.T_grads[ind,...] = native_fenics_eval_vec(vec_u,T_coords)
             self.dt = self.T_fin / self.Nt
-        assert (ndims=>2) # we are in 2D, so the gradient (vector) function better have more than 1d!
+        assert (ndims>=2) # we are in 2D, so the gradient (vector) function better have more than 1d!
 
     def __call__(self, coords, times = None):
         '''
