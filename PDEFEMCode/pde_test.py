@@ -512,7 +512,7 @@ class TestInterpolators(unittest.TestCase):
         not_mine = np.zeros(tr_len)
         for i in range(tr_len):
             not_mine[i] = list_fenics[i](P[i, :])
-            np.testing.assert_almost_equal(not_mine[i] - wrap(P[i, :], [[0, .6, 1][i]], optimization_mode=True), 0,
+            np.testing.assert_almost_equal(not_mine[i] - wrap(P[i, :], [[-1, .6, 1][i]], optimization_mode=True), 0,
                                            decimal=8)
 
         # Vector test

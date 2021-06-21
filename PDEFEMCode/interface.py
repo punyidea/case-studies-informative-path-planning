@@ -34,7 +34,7 @@ class RectangleInterpolator():
     This is an abstract class that stores common parameters of the gradient interpolator.
     '''
 
-    def __init__(self, nx, ny, P0, P1, fem_data, T_fin=None, Nt=None, time_dependent=False, for_optimization=True, verbose=False):
+    def __init__(self, nx, ny, P0, P1, fem_data, T_fin=None, Nt=None, time_dependent=False, for_optimization=False, verbose=False):
         # Some geometric initializations
         pass
         self.nx = nx
@@ -330,12 +330,15 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
             # If a single query time
             times = np.array(times, ndmin=1)
             # Victor made this change:
-            eps = 1e-5
-            time_ind = times / self.dt
-            if np.any(np.logical_or(time_ind < 0, time_ind > self.Nt + eps)):
-                raise ValueError(
-                    'A time supplied was out of bounds. Check that times are in interval [0,{}]'.format(self.T_fin))
-            t_ind = np.round(time_ind).astype(int).tolist()
+            if not optimization_mode:
+                eps = 1e-5
+                time_ind = times / self.dt
+                if np.any(np.logical_or(time_ind < 0, time_ind > self.Nt + eps)):
+                    raise ValueError(
+                        'A time supplied was out of bounds. Check that times are in interval [0,{}]'.format(self.T_fin))
+                t_ind = np.round(time_ind).astype(int).tolist()
+            else:
+                t_ind = np.clip(np.round(times / self.dt), 0, self.Nt).astype(int).tolist()
 
         # Getting the index of the rectangular cell and the type of the triangle, while also ensuring the query index
         # is admissible (and at the same time: being able to input any point we want)
