@@ -329,7 +329,13 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
         else:
             # If a single query time
             times = np.array(times, ndmin=1)
-            t_ind = np.clip(np.round(times/self.dt), 0, self.Nt).astype(int).tolist()
+            # Victor made this change:
+            eps = 1e-5
+            time_ind = times / self.dt
+            if np.any(np.logical_or(time_ind < 0, time_ind > self.Nt + eps)):
+                raise ValueError(
+                    'A time supplied was out of bounds. Check that times are in interval [0,{}]'.format(self.T_fin))
+            t_ind = np.round(time_ind).astype(int).tolist()
 
         # Getting the index of the rectangular cell and the type of the triangle, while also ensuring the query index
         # is admissible (and at the same time: being able to input any point we want)
