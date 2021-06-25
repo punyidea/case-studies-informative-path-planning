@@ -453,6 +453,7 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
             ndims = grad_u.value_dimension(0)
             self.T_grads = native_fenics_eval_vec(grad_u, T_coords)
         else:
+            self.t_ind_all = np.arange(0, self.Nt + 1).tolist()
             vec_u_list = vec_u # we are actually given a list of functions.
             ndims = vec_u_list[0].value_dimension(0)
             self.T_grads = np.zeros((len(vec_u),) + T_coords.shape)
@@ -509,13 +510,21 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
             out_arr = self.T_grads[index_int[..., 0], index_int[..., 1], type_def, :]
 
         else:
-            if times is None:
-                raise ValueError('Interpolation was said to be time dependent. No time was provided.')
-            eps = 1e-5
-            time_ind = times/self.dt
-            if np.any(np.logical_or(time_ind < 0, time_ind > self.Nt + eps)):
-                raise ValueError('A time supplied was out of bounds. Check that times are in interval [0,{}]'.format(self.T_fin))
-            time_ind = np.round(time_ind).astype(int)
+
+            if self.for_optimization:
+                if times is None:
+                    time_ind = self.t_ind_all
+                else:
+                    time_ind = times #.astype(int)
+            else:
+                if times is None:
+                    raise ValueError('Interpolation was said to be time dependent. No time was provided.')
+                eps = 1e-5
+                time_ind = times/self.dt
+                if np.any(np.logical_or(time_ind < 0, time_ind > self.Nt + eps)):
+                    raise ValueError('A time supplied was out of bounds. Check that times are in interval [0,{}]'.format(self.T_fin))
+                time_ind = np.round(time_ind).astype(int)
+
             out_arr = self.T_grads[time_ind,index_int[..., 0], index_int[..., 1], type_def, :]
 
         out_arr[..., oob] = 0 # set gradient to be 0 in out of bounds dimension.

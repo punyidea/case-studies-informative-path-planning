@@ -654,7 +654,7 @@ PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[0], coords[t <=.5
 
         np.testing.assert_almost_equal(approx_grad_eval[t > .5, :],
                                        PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[1],
-                                                                                   coords[t > .5, :]),
+                                                                                   coords[t > .5, :])
                                        )
 
         #three points, four times. Check we are out of bounds in the correct places.
@@ -663,6 +663,37 @@ PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[0], coords[t <=.5
         approx_grad_eval = grad_approxim(coords,times)
         np.testing.assert_array_equal(approx_grad_eval[:,1:,1],0)
         np.testing.assert_array_equal(approx_grad_eval[:,[0,2],0],0)
+
+        #test new for_optimization indexing
+        # vector of coordinates.
+        grad_approxim_optim = PDEFEMCode.interface.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_fenics_grad_list,
+                                                                            time_dependent=True, Nt=Nt, T_fin=1, for_optimization=True)
+        coords = np.random.uniform(P0 + eps, P1 - eps, (3, 2))
+        times_optim = np.array([0,1,1]).astype(int)
+        approx_grad_optim_eval  = grad_approxim_optim(coords,times_optim)
+        np.testing.assert_almost_equal(approx_grad_optim_eval[times_optim == 0, :],
+                                       PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[0],
+                                                                                   coords[times_optim==0, :]))
+        np.testing.assert_almost_equal(approx_grad_optim_eval[times_optim == 1, :],
+                                       PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[1],
+                                                                                   coords[times_optim==1, :]))
+
+        #test single coordinate.
+        coord = np.random.uniform(P0 + eps, P1 - eps, (2,))
+        time_optim = 1
+        approx_grad_optim_eval = grad_approxim_optim(coord, time_optim)
+        np.testing.assert_almost_equal(approx_grad_optim_eval,
+                                      PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[time_optim],
+                                                                                  coord))
+        # test no time given.
+        approx_grad_optim_allt_eval = grad_approxim_optim(coord)
+        np.testing.assert_almost_equal(approx_grad_optim_allt_eval[0,:],
+                                       PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[0],
+                                                                                   coord))
+        np.testing.assert_almost_equal(approx_grad_optim_allt_eval[1,:],
+                                       PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[1],
+                                                                                   coord))
+
 
 
 
