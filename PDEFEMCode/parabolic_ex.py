@@ -24,7 +24,7 @@ f_expression = '3*(-1 + x[0] + x[1]) - 3*(-1 + x[0] + x[1])*cos(3*t) + (3*(3*pow
 # Parameters determining the mesh.
 # This is a triangular mesh on the unit square, where we have [0,1]^2 divided into 100 x 100 sub-squares, each one
 # subdivided into two triangles by the down-left to up-right diagonal. In total there are 2 x 100 x 100 triangles.
-N = 20
+N = 10
 nx, ny = N, N
 P0, P1 = np.array([10, -50]), np.array([11, 2])  # top right, bottom left corner
 
@@ -34,7 +34,7 @@ T_fin = 1.0  # final time
 Nt = N ** 2  # number of time intervals: a uniform time-grid of 1+Nt timestamps is generated
 
 # File save place
-out_file = 'parabolic_nx_20_rectangle_ex'
+out_file = 'parabolic_nx_10_rectangle_ex'
 out_folder = ''
 # ------Begin main code.----------
 
@@ -91,7 +91,7 @@ fenics_list.insert(0, fc.interpolate(fc.Constant(0), fn_space))
 # Obtaining the interpolator for u
 u = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, fenics_list, T_fin=T_fin, Nt=Nt, time_dependent=True, verbose=True, for_optimization=True)
 grad_u_list = [pde_utils.fenics_grad(mesh,u_fenics) for u_fenics in fenics_list]
-grad_u = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, fenics_list, T_fin=T_fin, Nt=Nt, time_dependent=True)
+grad_u = pde_IO.FenicsRectangleVecInterpolator(nx, ny, P0, P1, grad_u_list, T_fin=T_fin, Nt=Nt, time_dependent=True, for_optimization=True)
 
 param_save = {'f':u,'grad_f':grad_u}
 

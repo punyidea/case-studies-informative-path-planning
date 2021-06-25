@@ -60,7 +60,7 @@ class RectangleInterpolator():
     Todo: include rmesh_p, move relevant parts of documentation from linear interpolator
     '''
 
-    def __init__(self, rmesh_p, fem_data, T_fin=None, Nt=None, time_dependent=False, for_optimization=True, verbose=False):
+    def __init__(self, rmesh_p, fem_data, T_fin=None, Nt=None, time_dependent=False, for_optimization=False, verbose=False):
         # Some geometric initializations
         pass
         self.nx = rmesh_p.nx
@@ -275,9 +275,12 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
                 # If my query point is outside the original mesh, set u to zero. This won't affect the final result,
                 # as everything outside the original mesh is squashed onto the rectangle boundary. The interpolation
                 # then becomes a line interpolation of known u values
-                if x > self.x1+1e-12 or x < self.x0-1e-12 or y < self.y0-1e-12 or y > self.y1+1e-12:
+                if x > self.x1+self.hx/2 or x < self.x0-self.hx/2 or y < self.y0-self.hy/2 or y > self.y1+self.hy/2:
                     u_ij = 0
                 else:
+                    # Next two lines for robustness against rounding errors
+                    x = np.clip(x, self.x0, self.x1)
+                    y = np.clip(y, self.y0, self.y1)
                     u_ij = u([x, y])
 
                 if i > 0 and j < ny:
@@ -352,7 +355,16 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
         else:
             # If a single query time
             times = np.array(times, ndmin=1)
-            t_ind = np.clip(np.round(times/self.dt), 0, self.Nt).astype(int).tolist()
+            # Victor made this change:
+            if not optimization_mode:
+                eps = 1e-5
+                time_ind = times / self.dt
+                if np.any(np.logical_or(time_ind < 0, time_ind > self.Nt + eps)):
+                    raise ValueError(
+                        'A time supplied was out of bounds. Check that times are in interval [0,{}]'.format(self.T_fin))
+                t_ind = np.round(time_ind).astype(int).tolist()
+            else:
+                t_ind = np.clip(np.round(times / self.dt), 0, self.Nt).astype(int).tolist()
 
         # Getting the index of the rectangular cell and the type of the triangle, while also ensuring the query index
         # is admissible (and at the same time: being able to input any point we want)
@@ -464,14 +476,21 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
         T_coords = np.stack((BR_coords, UL_coords), axis=-2)
 
         if not self.time_dependent:
+            ndims = grad_u.value_dimension(0)
             self.T_grads = native_fenics_eval_vec(grad_u, T_coords)
         else:
+            self.t_ind_all = np.arange(0, self.Nt + 1).tolist()
             vec_u_list = vec_u # we are actually given a list of functions.
+            ndims = vec_u_list[0].value_dimension(0)
             self.T_grads = np.zeros((len(vec_u),) + T_coords.shape)
             for ind,vec_u in enumerate(vec_u_list):
+                if vec_u.value_dimension(0)!= ndims:
+                    raise ValueError(
+                        'The fenics functions in the list have mismatching '
+                        'dimensions between them (detected at index {}).'.format(ind))
                 self.T_grads[ind,...] = native_fenics_eval_vec(vec_u,T_coords)
             self.dt = self.T_fin / self.Nt
-
+        assert (ndims>=2) # we are in 2D, so the gradient (vector) function better have more than 1d!
 
     def __call__(self, coords, times = None):
         '''
@@ -517,16 +536,24 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
             out_arr = self.T_grads[index_int[..., 0], index_int[..., 1], type_def, :]
 
         else:
-            if times is None:
-                raise ValueError('Interpolation was said to be time dependent. No time was provided.')
-            eps = 1e-5
-            time_ind = times/self.dt
-            if np.any(np.logical_or(time_ind < 0, time_ind > self.Nt + eps)):
-                raise ValueError('A time supplied was out of bounds. Check that times are in interval [0,{}]'.format(self.T_fin))
-            time_ind = np.round(time_ind).astype(int)
+
+            if self.for_optimization:
+                if times is None:
+                    time_ind = self.t_ind_all
+                else:
+                    time_ind = times #.astype(int)
+            else:
+                if times is None:
+                    raise ValueError('Interpolation was said to be time dependent. No time was provided.')
+                eps = 1e-5
+                time_ind = times/self.dt
+                if np.any(np.logical_or(time_ind < 0, time_ind > self.Nt + eps)):
+                    raise ValueError('A time supplied was out of bounds. Check that times are in interval [0,{}]'.format(self.T_fin))
+                time_ind = np.round(time_ind).astype(int)
+
             out_arr = self.T_grads[time_ind,index_int[..., 0], index_int[..., 1], type_def, :]
 
-        out_arr[..., oob] = 0
+        out_arr[..., oob] = 0 # set gradient to be 0 in out of bounds dimension.
         #out_shape = coords_shape[:-1] + (2,)
         return out_arr
 
