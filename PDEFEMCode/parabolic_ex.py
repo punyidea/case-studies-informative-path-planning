@@ -1,12 +1,27 @@
 '''
 This file is a working example in the discretization of the heat equation with homogeneous Neumann condition, and zero
 initial condition.
+
+# This problem solves the equation
+# D_t u  - \alpha \Delta u = f, u(0)=0, homogeneous Neumann BC and initial conditions
+# for f(x,y,t) = 3(-1+x+y)-3(-1+x+y)cos(3t)+(3(3x^2-2y^3+(3-2y)y^2 sin(3t))/4
+
+# Set up the LHS and RHS forms that are used.
+#   (see functions elliptic_LHS, elliptic_RHS for templates on how to change the PDE.)
 '''
 
 import PDEFEMCode.fenics_utils as pde_utils
 import PDEFEMCode.interface as pde_IO
 import fenics as fc
 import numpy as np
+import argparse,sys
+
+#load parameters from the file given by the first command line argument.
+parser = argparse.ArgumentParser()
+parser.add_argument('-y','--yaml_fname',required=True)
+args = parser.parse_args()
+params_yml = pde_IO.yaml_load(args.yaml_fname)
+in_params = pde_utils.yaml_parse_elliptic(params_yml, args.yaml_fname)
 
 # This problem solves the equation
 # D_t u  - \alpha \Delta u = f, u(0)=0, homogeneous Neumann BC and initial conditions
@@ -18,7 +33,7 @@ LHS = pde_utils.heat_eq_LHS
 RHS = pde_utils.heat_eq_RHS
 
 # Note: the expression below is using the string format function to build it.
-f_expression = '3*(-1 + x[0] + x[1]) - 3*(-1 + x[0] + x[1])*cos(3*t) + (3*(3*pow(x[0],2) - 2*pow(x[0],3) + (3 - 2*x[' \
+f_expression_str = '3*(-1 + x[0] + x[1]) - 3*(-1 + x[0] + x[1])*cos(3*t) + (3*(3*pow(x[0],2) - 2*pow(x[0],3) + (3 - 2*x[' \
                '1])*pow(x[1],2))*sin(3*t))/4 '
 
 # Parameters determining the mesh.
@@ -45,8 +60,7 @@ mesh, fn_space = pde_utils.setup_rectangular_function_space(nx, ny, P0, P1)
 dt, times = pde_utils.setup_time_discretization(T_fin, Nt)
 
 RHS_fn = fc.Expression(
-    '3*(-1 + x[0] + x[1]) - 3*(-1 + x[0] + x[1])*cos(3*t) + (3*(3*pow(x[0],2) - 2*pow(x[0],3) + (3 - '
-    '2*x[1])*pow(x[1],2))*sin(3*t))/4', degree=2, t=0)
+    f_expression_str, degree=2, t=0)
 u_ref = fc.Expression('((-3*pow(x[0],2) + 2*pow(x[0],3) + pow(x[1],2)*(-3 + 2*x[1]))*(-1 + cos(3*t)))/4',
                       degree=2, t=0)
 

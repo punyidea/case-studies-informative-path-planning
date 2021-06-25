@@ -25,7 +25,6 @@ in_params = PDEFEMCode.fenics_utils.yaml_parse_elliptic(params_yml, args.yaml_fn
 #   (see functions elliptic_LHS, elliptic_RHS for templates on how to change the PDE.)
 var_form_p = in_params.var_form
 
-
 # Note: the expression below is using the string format function to build it.
 #   Gamma is split into two separate numbers.
 
@@ -43,8 +42,11 @@ v_test = fc.TestFunction(fn_space)
 
 # Setup variational formulation, tying the LHS form with the trial function
 # and the RHS form with the test functions and the RHS function.
-u_rhs_expression = var_form_p.rhs_expression(**var_form_p.rhs_exp_params)
-RHS_fn = fc.Expression(u_rhs_expression, element = fn_space.ufl_element())
+if not var_form_p.rhs_expression_str:
+    var_form_p.rhs_expression_str = var_form_p.rhs_expression(**var_form_p.rhs_exp_params)
+
+
+RHS_fn = fc.Expression(var_form_p.rhs_expression_str, element = fn_space.ufl_element())
 LHS_int, RHS_int = pde_utils.variational_formulation(
     u_trial, v_test,
     var_form_p.LHS,

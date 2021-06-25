@@ -22,6 +22,8 @@ def get_function_from_str(fname):
         return fn
     except KeyError:
         raise ValueError('The function {} was not defined in the fenics_utils file.'.format(fname))
+
+
 #todo (victor): document parameter structs.
 @dataclass
 class VarFormulationParams:
@@ -29,31 +31,43 @@ class VarFormulationParams:
     RHS_str: str
     LHS: 'typing.Callable' = field(init=False)
     RHS: 'typing.Callable' = field(init=False)
+
+    rhs_exp_params: dict
+    rhs_expression_fn_str: str = ''
+    rhs_expression_str: str = ''
+    rhs_expression: 'typing.Callable' = field(init=False)
     def __post_init__(self):
         self.LHS = get_function_from_str(self.LHS_str)
         self.RHS = get_function_from_str(self.RHS_str)
+        if not self.rhs_expression_str:
+            self.rhs_expression = get_function_from_str(self.rhs_expression_fn_str)
 
 
 @dataclass
-class EllipticVarFormsParams(VarFormulationParams):
-    rhs_exp_params: dict
-    rhs_expression_str: str
-    rhs_expression: 'typing.Callable' = field(init=False)
-    def __post_init__(self):
-        super().__post_init__()
-        self.rhs_expression = get_function_from_str(self.rhs_expression_str)
-
+class TimeDiscParams:
+    tfin: float
+    Nt: int = -1
 
 @dataclass
 class EllipticRunParams:
     rect_mesh: RectMeshParams
     io: IOParams
-    var_form: EllipticVarFormsParams
+    var_form: VarFormulationParams
+
+@dataclass
+class ParabolicRunParams:
+    rect_mesh: RectMeshParams
+    time_disc: TimeDiscParams
+    io: IOParams
+    var_form: VarFormulationParams
+    def __post_init__(self):
+        if self.time_disc.Nt == -1:
+            self.time_disc.Nt = self.rect_mesh.nx*self.rect_mesh.ny
 
 def yaml_parse_elliptic(par_obj,in_fname):
 
     par_prep ={}
-    par_prep['var_form'] = EllipticVarFormsParams(**par_obj['var_form'])
+    par_prep['var_form'] = VarFormulationParams(**par_obj['var_form'])
     par_prep['io'] = IOParams(in_file = in_fname, **par_obj['io'])
     par_prep['rect_mesh'] = RectMeshParams(**par_obj['rect_mesh'])
 
