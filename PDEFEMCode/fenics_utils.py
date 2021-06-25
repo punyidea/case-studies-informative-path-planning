@@ -5,10 +5,11 @@ Documentation assumes that fenics 2019.1.0 is used, and imported by
 '''
 import fenics as fc
 import numpy as np
-from dataclasses import dataclass, field
 from scipy.interpolate import RegularGridInterpolator
 
-from PDEFEMCode.interface import RectMeshParams, IOParams
+from PDEFEMCode.interface import RectMeshParams, IOParams, VarFormulationParams, TimeDiscParams, EllipticRunParams, \
+    ParabolicRunParams
+
 
 def get_function_from_str(fname):
     '''
@@ -23,55 +24,59 @@ def get_function_from_str(fname):
     except KeyError:
         raise ValueError('The function {} was not defined in the fenics_utils file.'.format(fname))
 
+def post_process_var_form_p(var_form_p):
+    var_form_p.LHS = get_function_from_str(var_form_p.LHS_str)
+    var_form_p.RHS = get_function_from_str(var_form_p.RHS_str)
+    if not var_form_p.rhs_expression_str:
+        var_form_p.rhs_expression = get_function_from_str(var_form_p.rhs_expression_fn_str)
 
-#todo (victor): document parameter structs.
-@dataclass
-class VarFormulationParams:
-    LHS_str: str
-    RHS_str: str
-    LHS: 'typing.Callable' = field(init=False)
-    RHS: 'typing.Callable' = field(init=False)
+    return var_form_p
 
-    rhs_exp_params: dict
-    rhs_expression_fn_str: str = ''
-    rhs_expression_str: str = ''
-    rhs_expression: 'typing.Callable' = field(init=False)
-    def __post_init__(self):
-        self.LHS = get_function_from_str(self.LHS_str)
-        self.RHS = get_function_from_str(self.RHS_str)
-        if not self.rhs_expression_str:
-            self.rhs_expression = get_function_from_str(self.rhs_expression_fn_str)
+def post_process_io_p(io_p):
+    return io_p
 
+def post_process_rect_mesh_p(rmesh_p):
+    return rmesh_p
 
-@dataclass
-class TimeDiscParams:
-    tfin: float
-    Nt: int = -1
+def post_process_time_disc(time_disc_p):
+    return time_disc_p
 
-@dataclass
-class EllipticRunParams:
-    rect_mesh: RectMeshParams
-    io: IOParams
-    var_form: VarFormulationParams
-
-@dataclass
-class ParabolicRunParams:
-    rect_mesh: RectMeshParams
-    time_disc: TimeDiscParams
-    io: IOParams
-    var_form: VarFormulationParams
-    def __post_init__(self):
-        if self.time_disc.Nt == -1:
-            self.time_disc.Nt = self.rect_mesh.nx*self.rect_mesh.ny
+def post_process_parabolic_run_params(parabolic_p):
+    if parabolic_p.time_disc.Nt == -1:
+        parabolic_p.time_disc.Nt = parabolic_p.rect_mesh.nx*parabolic_p.rect_mesh.ny
+    return parabolic_p
 
 def yaml_parse_elliptic(par_obj,in_fname):
 
     par_prep ={}
-    par_prep['var_form'] = VarFormulationParams(**par_obj['var_form'])
-    par_prep['io'] = IOParams(in_file = in_fname, **par_obj['io'])
-    par_prep['rect_mesh'] = RectMeshParams(**par_obj['rect_mesh'])
+    var_form_p = VarFormulationParams(**par_obj['var_form'])
+    par_prep['var_form'] = post_process_var_form_p(var_form_p)
+
+    io_p = IOParams(in_file = in_fname, **par_obj['io'])
+    par_prep['io'] = post_process_io_p(io_p)
+
+    rmesh_p= RectMeshParams(**par_obj['rect_mesh'])
+    par_prep['rect_mesh'] = post_process_rect_mesh_p(rmesh_p)
 
     ret_params = EllipticRunParams(**par_prep)
+    return ret_params
+
+def yaml_parse_parabolic(par_obj,in_fname):
+
+    par_prep ={}
+    var_form_p = VarFormulationParams(**par_obj['var_form'])
+    par_prep['var_form'] = post_process_var_form_p(var_form_p)
+
+    io_p = IOParams(in_file=in_fname, **par_obj['io'])
+    par_prep['io'] = post_process_io_p(io_p)
+
+    rmesh_p = RectMeshParams(**par_obj['rect_mesh'])
+    par_prep['rect_mesh'] = post_process_rect_mesh_p(rmesh_p)
+
+    time_disc_p = TimeDiscParams(**par_obj['time_disc'])
+    par_prep['time_disc'] = post_process_time_disc(time_disc_p)
+    ret_params = ParabolicRunParams(**par_prep)
+    ret_params = post_process_parabolic_run_params(ret_params)
     return ret_params
 
 def setup_unitsquare_function_space(n):
@@ -118,7 +123,7 @@ def setup_rectangular_function_space(rmesh_p):
     return mesh, fn_space
 
 
-def setup_time_discretization(T_fin, Nt):
+def setup_time_discretization(time_disc_p):
     """
 
     :param T_fin: because we study the PDE in [0,T_fin]
@@ -129,8 +134,8 @@ def setup_time_discretization(T_fin, Nt):
         - times: a vector of Nt+1 evenly spaced time instants 0, dt, 2*dt, ... T_fin
     """
     # Create mesh and define function space
-    dt = 1 / Nt
-    times = np.linspace(0, T_fin, Nt + 1)
+    dt = 1 / time_disc_p.Nt
+    times = np.linspace(0, time_disc_p.T_fin, time_disc_p.Nt + 1)
     return dt, times
 
 def variational_formulation(u_trial, v_test, LHS, RHS, RHS_fn, LHS_args=None, RHS_args=None):

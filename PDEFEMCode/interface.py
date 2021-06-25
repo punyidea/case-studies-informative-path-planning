@@ -3,7 +3,7 @@ import os, pickle
 import numpy as np
 import typing
 import yaml
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 
@@ -13,7 +13,7 @@ def yaml_load(fname):
         par_obj = yaml.load(filep)
     return par_obj
 
-
+#todo (victor): document parameter structs.
 @dataclass
 class RectMeshParams:
     nx: int
@@ -26,6 +26,40 @@ class IOParams:
     out_file_prefix:   str
     out_folder: str
     in_file:    str
+
+@dataclass
+class VarFormulationParams:
+    LHS_str: str
+    RHS_str: str
+    LHS: 'typing.Callable' = field(init=False)
+    RHS: 'typing.Callable' = field(init=False)
+
+    rhs_exp_params: dict
+    rhs_expression_fn_str: str = ''
+    rhs_expression_str: str = ''
+    rhs_expression: 'typing.Callable' = field(init=False)
+
+
+@dataclass
+class TimeDiscParams:
+    T_fin: float
+    Nt: int = -1
+
+
+@dataclass
+class EllipticRunParams:
+    rect_mesh: RectMeshParams
+    io: IOParams
+    var_form: VarFormulationParams
+
+
+@dataclass
+class ParabolicRunParams:
+    rect_mesh: RectMeshParams
+    time_disc: TimeDiscParams
+    io: IOParams
+    var_form: VarFormulationParams
+
 
 
 def pickle_save(out_path, fname, obj_save, ext='.pkl'):
@@ -590,3 +624,5 @@ def native_fenics_eval_vec(vec_fenics, coords):
     for ind, coord in enumerate(coords_reshape):
         vec_fenics.eval(out_arr[ind], coord)
     return out_arr.reshape(out_arr_shape)
+
+
