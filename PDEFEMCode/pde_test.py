@@ -237,7 +237,8 @@ class TestPDEParabolicSolver(TestCase):
 
             # Time discretization
             curr_time_steps = self.time_array[current_discr]
-            dt, times = pde_utils.setup_time_discretization(self.T, curr_time_steps)
+            time_disc_p = pde_utils.TimeDiscParams(self.T,curr_time_steps)
+            dt, times = pde_utils.setup_time_discretization(time_disc_p)
 
             # Variational problem
             u_previous = fc.interpolate(fc.Constant(0), V)  # the solution at initial time is zero
@@ -667,9 +668,9 @@ PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[0], coords[t <=.5
 
         #test new for_optimization indexing
         # vector of coordinates.
-        grad_approxim_optim = PDEFEMCode.interface.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_fenics_grad_list,
+        grad_approxim_optim = PDEFEMCode.interface.FenicsRectangleVecInterpolator(rmesh_p, u_fenics_grad_list,
                                                                             time_dependent=True, Nt=Nt, T_fin=1, for_optimization=True)
-        coords = np.random.uniform(P0 + eps, P1 - eps, (3, 2))
+        coords = np.random.uniform(rmesh_p.P0 + eps, rmesh_p.P1 - eps, (3, 2))
         times_optim = np.array([0,1,1]).astype(int)
         approx_grad_optim_eval  = grad_approxim_optim(coords,times_optim)
         np.testing.assert_almost_equal(approx_grad_optim_eval[times_optim == 0, :],
@@ -680,7 +681,7 @@ PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[0], coords[t <=.5
                                                                                    coords[times_optim==1, :]))
 
         #test single coordinate.
-        coord = np.random.uniform(P0 + eps, P1 - eps, (2,))
+        coord = np.random.uniform(rmesh_p.P0 + eps, rmesh_p.P1 - eps, (2,))
         time_optim = 1
         approx_grad_optim_eval = grad_approxim_optim(coord, time_optim)
         np.testing.assert_almost_equal(approx_grad_optim_eval,
