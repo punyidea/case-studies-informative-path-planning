@@ -1,26 +1,41 @@
+# This is a YAML file which contains sample parameters to run parabolic_ex.py
+# Note: Please note that the indentation is important to the processing of this file.
+# Lines starting with '# 'are comments and are ignored, as in Python.
 
-# Parameters related to PDE setup.
+# Parameters related to PDE variational form.
 var_form:
-  LHS_str:    'heat_eq_LHS'
-  RHS_str:    'heat_eq_RHS'
+  # Elliptic_LHS and Elliptic_RHS forms used together solve
+  # \int \nabla u \cdot \nabla v + uv dx = \int f*v dx
+  # (The weak formulation of -\nabla^2 u + u = f).
+  LHS_form_str:    'heat_eq_LHS'
+    #Function defined in fenics_utils.py
+  RHS_form_str:    'heat_eq_RHS'
+    #function defined in fenics_utils.py
   rhs_expression_str: '3*(-1 + x[0] + x[1]) - 3*(-1 + x[0] + x[1])*cos(3*t) + (3*(3*pow(x[0],2) - 2*pow(x[0],3) + (3 - 2*x[1])*pow(x[1],2))*sin(3*t))/4 '
-  rhs_expression_fn_str: '' # Gaussian RHS function is exp(-norm(x-gamma)^2/r)
-  rhs_exp_params: {}
+    # The FEniCS expression which when evaluated, will be used as f in the right hand side of the variational form.
+    # This is a function of x[0],x[1] and t.
+  rhs_expression_fn_str: '' # Alternately, one may choose a function which
+                            # generates a valid FEniCS string. See elliptic_params for an example
+  rhs_exp_params: {} #any extra keyword arguments to the function in rhs_expression_fn_str. If empty, use {}.
+  #Note: Homogeneous Von Neumann Boundary conditions are assumed on the unit square.
 
 
 # Parameters determining the mesh.
-# As is, it is a square 0.01 step size mesh on the unit square
+# As is, it is a square 0.05 step size mesh on the unit square
 rect_mesh:
-  nx: 20
-  ny: 20
-  P0: [0,0]
-  P1: [1,1]
+  nx: 20 # number of divisions of the unit interval in x, included in the mesh.
+  # There are nx + 1 distinct x coordinates in the mesh.
+  ny: 20 # same as above, for y.
+  P0: [0,0] # Coordinates of the bottom left of the rectangular mesh.
+  P1: [1,1] # Coordinates of the top right of the rectangular mesh
+
+# Parameters related to the time discretization of the parabolic problem.
+time_disc:
+  T_fin: 1.0 #Ending time
+  Nt: -1 # If -1, the default is nx*ny distinct timesteps.
 
 # IO Properties
 io:
-  out_file_prefix: 'parabolic_square_mesh_interp'
-  out_folder: ''
+  out_file_prefix: 'parabolic_square_mesh_interp' #file name without the default .pkl extension.
+  out_folder: ''#Path to file. Leave blank to save in the current directory.
 
-time_disc:
-  T_fin: 1.0
-  Nt: -1
