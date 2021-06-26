@@ -25,28 +25,65 @@ def get_function_from_str(fname):
         raise ValueError('The function {} was not defined in the fenics_utils file.'.format(fname))
 
 def post_process_var_form_p(var_form_p):
-    var_form_p.LHS = get_function_from_str(var_form_p.LHS_str)
-    var_form_p.RHS = get_function_from_str(var_form_p.RHS_str)
+    '''
+    Performs post processing on the variational form parameter variable.
+    Key functionality is to assign the correct function handles to LHS, RHS
+        from the strings.
+    Also, if no expression string has been explicitly set, assign the correct function handle.
+    :param var_form_p:
+    :return:
+    '''
+    var_form_p.LHS = get_function_from_str(var_form_p.LHS_form_str)
+    var_form_p.RHS = get_function_from_str(var_form_p.RHS_form_str)
     if not var_form_p.rhs_expression_str:
         var_form_p.rhs_expression = get_function_from_str(var_form_p.rhs_expression_fn_str)
-
+    if var_form_p.rhs_expression_str and var_form_p.rhs_expression_fn_str:
+        Warning('Both a fenics string and string specifying which function to use to construct the FEniCS expression string are defined.\n'
+                'Function string is ignored.')
     return var_form_p
 
 def post_process_io_p(io_p):
+    '''
+    :param io_p: an IOParams object.
+    :return:
+    '''
+
     return io_p
 
 def post_process_rect_mesh_p(rmesh_p):
+    '''
+
+    :param rmesh_p: A RectMeshParams object.
+    :return:
+    '''
     return rmesh_p
 
 def post_process_time_disc(time_disc_p):
+    '''
+
+    :param time_disc_p: a TimeDiscParams object.
+    :return:
+    '''
     return time_disc_p
 
 def post_process_parabolic_run_params(parabolic_p):
+    '''
+    Post processing on the parabolic run parameters. Default behavior is
+    :param parabolic_p:  a ParabolicRunParams object.
+    :return:
+    '''
     if parabolic_p.time_disc.Nt == -1:
         parabolic_p.time_disc.Nt = parabolic_p.rect_mesh.nx*parabolic_p.rect_mesh.ny
     return parabolic_p
 
 def yaml_parse_elliptic(par_obj,in_fname):
+    '''
+    Parses the YAML object given by PYYaml (a dictionary)
+        to place it in the correct data structures.
+    :param par_obj: The object returned by PYYAML library
+    :param in_fname: The name of the yaml file it was read from. (stored in IOParams)
+    :return: The (parsed and partially validated) EllipticRunParams structure which allows elloptic_ex.py to run.
+    '''
 
     par_prep ={}
     var_form_p = VarFormulationParams(**par_obj['var_form'])
@@ -62,6 +99,18 @@ def yaml_parse_elliptic(par_obj,in_fname):
     return ret_params
 
 def yaml_parse_parabolic(par_obj,in_fname):
+    '''
+
+    Parses the YAML object given by PYYaml (a dictionary)
+        to place it in the correct data structures.
+    :param par_obj: The object returned by PYYAML library
+    :param in_fname: The name of the yaml file it was read from. (stored in IOParams)
+    :return: The (parsed and partially validated) ParabolicRunParams structure which allows elloptic_ex.py to run.
+
+    :param par_obj:
+    :param in_fname:
+    :return:
+    '''
 
     par_prep ={}
     var_form_p = VarFormulationParams(**par_obj['var_form'])
@@ -100,13 +149,10 @@ def setup_unitsquare_function_space(n):
 
 def setup_rectangular_function_space(rmesh_p):
     """
-    Todo (victor): rewrite params.
     Sets up the dicrete function space on a rectangle with lower left corner P0, upper right corner P1.
     This includes preparing the mesh and basis functions on the mesh.
 
-    :param P0: np.array of two coordinates, indicating the lower left rectangle of the mesh
-    :param P1: np.array of two coordinates, indicating the upper right rectangle of the mesh
-
+    :param rmesh_p: The RectMeshParams object which describes the structure of the rectangular mesh.
     :return:
         - mesh, a mesh on the rectangle with lower left corner P0, upper right corner P1.
             nx means a nx+1 uniform subdivision in the x direction, analogously for ny
@@ -125,13 +171,10 @@ def setup_rectangular_function_space(rmesh_p):
 
 def setup_time_discretization(time_disc_p):
     """
-
-    :param T_fin: because we study the PDE in [0,T_fin]
-    :param Nt: for time discretization, we only look at a uniform dicretization of [0,T_fin] of Nt+1 instants
-
+    :param time_disc_p: The TimeDiscParams object which describes how the time space is discretised.
     :return:
-        - dt: dt  = T_fin/Nt
-        - times: a vector of Nt+1 evenly spaced time instants 0, dt, 2*dt, ... T_fin
+        - dt: dt  = time_disc_p.T_fin/time_disc_p.Nt
+        - times: a vector of Nt+1 evenly spaced time instants 0, dt, 2*dt, ... time_disc_p.T_fin
     """
     # Create mesh and define function space
     dt = 1 / time_disc_p.Nt

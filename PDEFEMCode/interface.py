@@ -8,46 +8,71 @@ from dataclasses import dataclass, field
 
 
 def yaml_load(fname):
+    '''
+    Loads a file given by YAML filename.
+    :param fname:
+    :return:
+    '''
 
     with open(fname,'r') as filep:
         par_obj = yaml.load(filep)
     return par_obj
 
-#todo (victor): document parameter structs.
 @dataclass
 class RectMeshParams:
-    nx: int
-    ny: int
-    P0: 'typing.Iterable'
-    P1: 'typing.Iterable'
+    '''
+    Data structure which contains information about the rectangular mesh.
+    '''
+    nx: int                 # number of divisions of the unit interval in x, included in the mesh.
+                                # There are nx + 1 distinct x coordinates in the mesh. nx = 100 on unit square
+                                # corresponds to dx of 0.01
+    ny: int                 # same as above, for y.
+    P0: 'typing.Iterable'   # Coordinates of the bottom left of the rectangular mesh. length 2. Ex. unit square: [0,0]
+    P1: 'typing.Iterable'   # Coordinates of the top right of the rectangular mesh. length 2    Ex. unit square: [1,1]
+
 
 @dataclass
 class IOParams:
-    out_file_prefix:   str
-    out_folder: str
-    in_file:    str
+    '''
+    Data structure which stores information for saving the file
+    '''
+    out_file_prefix:   str  # The prefix of the save filename, without .pkl extension included.
+    in_file:    str         # the name of the file that made the struct (for datakeeping)
+    out_folder: str = ''    # The folder path where we would like to save
 
 @dataclass
 class VarFormulationParams:
-    LHS_str: str
-    RHS_str: str
-    LHS: 'typing.Callable' = field(init=False)
+    '''
+    Parameters which store the
+    '''
+    LHS_form_str: str           # The function name, in string form, used to construct the left hand integral in
+                                    # the variational form setup. See elliptic_LHS, heat_eq_LHS for examples.
+    RHS_form_str: str           # The function name, in string form, used to construct the left hand integral in
+                                    # the variational form setup. See elliptic_RHS, heat_eq_RHS for examples.
+    LHS: 'typing.Callable' = field(init=False) #Set in post processing: function handles to LHS and RHS.
     RHS: 'typing.Callable' = field(init=False)
 
-    rhs_exp_params: dict
-    rhs_expression_fn_str: str = ''
-    rhs_expression_str: str = ''
-    rhs_expression: 'typing.Callable' = field(init=False)
-
+    rhs_exp_params: dict # Extra keyword arguments used in the construction of the RHS expression by the rhs_expression.
+    rhs_expression_fn_str: str = '' # The function name, in string form, used to generate a FEniCS
+    rhs_expression_str: str = ''    # If rhs_expression_fn_str is not set: This string will be used as the valid FEniCS expression for the RHS.
+    rhs_expression: 'typing.Callable' = field(init=False) # Set in post processing: a function handle to a function that generates a valid FEniCS string.
+                                # See gaussian_expression_2D for an example.
 
 @dataclass
 class TimeDiscParams:
-    T_fin: float
-    Nt: int = -1
+    '''
+    Parameters which store time discretization.
+    '''
+    T_fin: float #Ending time
+    Nt: int = -1 # If -1, the default is nx*ny + 1 distinct timesteps.
+
 
 
 @dataclass
 class EllipticRunParams:
+    '''
+    All necessary parameters used to run an FEM simulation in elliptic_ex.py.
+    '''
     rect_mesh: RectMeshParams
     io: IOParams
     var_form: VarFormulationParams
@@ -55,6 +80,9 @@ class EllipticRunParams:
 
 @dataclass
 class ParabolicRunParams:
+    '''
+    All necessary parameters used to run an FEM simulation in parabolic_ex.py.
+    '''
     rect_mesh: RectMeshParams
     time_disc: TimeDiscParams
     io: IOParams
@@ -91,7 +119,10 @@ def pickle_load(fname, def_ext='.pkl'):
 class RectangleInterpolator():
     '''
     This is an abstract class that stores common parameters of the both custom interpolators.
-    Todo: include rmesh_p, move relevant parts of documentation from linear interpolator
+    :param rmesh_p: Parameters relating to the rectangular mesh, RectMeshParams object.
+    :param fem_data: either: a FEniCS function or a list of FEniCS functions which we will interpolate.
+    :param T_fin: the tinal time
+    Todo (victor, once this is cleaned up): replace T_fin, Nt with time discretization parameters.
     '''
 
     def __init__(self, rmesh_p, fem_data, T_fin=None, Nt=None, time_dependent=False, for_optimization=False, verbose=False):
@@ -466,12 +497,7 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
     When out of bounds, the function sets the gradient in the normal direction to the boundary to be 0.
         This is consistent with homogeneous Neumann boundary conditions.
 
-    Variables.
-    :param mesh: the fenics mesh object that we used.
-    :param nx, ny: number of side rectangular cells in x and y directions
-    :param P0: Minimum coordinates (x, then y) of the bounding box of the mesh
-    :param P1: Maximum coordinates (x, then y) of the bounding box
-    :param u_fenics: the  fenics Vector function (piecewise constant) to wrap in an interpolator.
+    Variables. See Abstract RectangleInterpolator class.
     :return: an object, that when called, computes the gradient of the provided function (a discontinuous mesh)
 
 
@@ -480,12 +506,12 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
 
     Use case (time independent):
         u_grad      = fenics_grad(mesh,u_fenics)
-        grad_interp     = FenicsRectangleGradInterpolator(nx, ny, P0, P1, u_grad)
+        grad_interp     = FenicsRectangleGradInterpolator(rmesh_p, u_grad)
         grad_eval   = grad_fn(coords)
 
     Use case (time dependent):
         u_grad_list = [fenics_grad(mesh, u_fenics) for u_fenics in u_fenics_list]
-        grad_fn     = FenicsRectangleGradInterpolator(nx, ny, P0, P1, u_grad_list,
+        grad_fn     = FenicsRectangleGradInterpolator(rmesh_p, u_grad_list,
                                                 time_dependent=True, Nt = len(u_grad_list)-1,T_fin = 1)
         grad_eval   = grad_fn(coords,t)
     '''
@@ -528,7 +554,6 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
 
     def __call__(self, coords, times = None):
         '''
-        Todo:  (victor) clean up function doc.
         When called, returns the gradient of the point on the mesh.
         If time-dependent, performs nearest-neighbor-in-time interpolation.
 
@@ -546,6 +571,9 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
             In this case, gradient is evaluated at each coordinate AND each time, separately.
             resulting out array is of shape
             (don't_care_time) from time + coords.shape
+            If no times are given, and the interpolator is time-dependent, then
+                for_optimization
+            todo (victor) cleanup when for_optimization flag has been renamed.
         :return: gradient of the interpolator, shape  (coords.shape[:-1] + (2,) ).
             If time dependent, times may impact size of array.
         '''
@@ -598,7 +626,7 @@ def native_fenics_eval_scalar(u_fenics, coords):
     :param u_fenics: fenics function.
     :param coords: points such that shape.coords[-1] is the number of dimensions of the function space.
         NOTE! Coords is not in separate (X,Y) form.
-    :return:
+    :return: shape.coords[-1] object where the fenics function has been evaluated at all coordinates.
     '''
     out_arr_shape = coords.shape[:-1]
     coords_reshape = coords.reshape((-1, coords.shape[-1]))
@@ -612,7 +640,6 @@ def native_fenics_eval_vec(vec_fenics, coords):
     '''
     Natively evaluate a function using fenics' evaluator.
     :param vec_fenics: fenics vector function with output dimension dim_out.
-    :param dim_out: a
     :param coords: points such that shape.coords[-1] is the number of dimensions of the function space.
         NOTE! Coords is not in separate (X,Y) form.
     :return: a shape with the same dimension as coords, but where the last index contains all dims of the fenics output.

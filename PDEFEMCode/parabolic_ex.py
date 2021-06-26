@@ -23,9 +23,6 @@ args = parser.parse_args()
 params_yml = pde_IO.yaml_load(args.yaml_fname)
 in_params = pde_utils.yaml_parse_parabolic(params_yml, args.yaml_fname)
 
-# This problem solves the equation
-# D_t u  - \alpha \Delta u = f, u(0)=0, homogeneous Neumann BC and initial conditions
-# for f(x,y,t) = 3(-1+x+y)-3(-1+x+y)cos(3t)+(3(3x^2-2y^3+(3-2y)y^2 sin(3t))/4
 var_form_p = in_params.var_form
 
 # Parameters determining the mesh.
