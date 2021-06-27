@@ -482,7 +482,7 @@ class TestInterpolators(unittest.TestCase):
 
         # Note, for very 'high' functions, the difference between me and Fenics is O(1e-6), instead of O(1e-13)
         wrap = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T_fin=T_fin, Nt=Nt, time_dependent=True,
-                                                        for_optimization=False, verbose=True)
+                                                        fast=False, verbose=True)
 
         P = np.array([[5.1, 22], [10, 18], [8, 23], [9.5, 1.1], [10, 2.5], [10, 23]])
 
@@ -512,18 +512,18 @@ class TestInterpolators(unittest.TestCase):
         not_mine = np.zeros(tr_len)
         for i in range(tr_len):
             not_mine[i] = list_fenics[i](P[i, :])
-            np.testing.assert_almost_equal(not_mine[i] - wrap(P[i, :], [[-1, .6, 1][i]], optimization_mode=True), 0,
+            np.testing.assert_almost_equal(not_mine[i] - wrap(P[i, :], [[-1, .6, 1][i]], trajectory_mode=True), 0,
                                            decimal=8)
 
         # Vector test
-        mine = wrap(P[[0, 2], :], [0, 1], optimization_mode=True)
+        mine = wrap(P[[0, 2], :], [0, 1], trajectory_mode=True)
         np.testing.assert_almost_equal(np.max(np.abs(mine - not_mine[[0, 2]])), 0, decimal=8)
-        mine = wrap(P[[0, 1, 2], :], optimization_mode=True)
+        mine = wrap(P[[0, 1, 2], :], trajectory_mode=True)
         np.testing.assert_almost_equal(np.max(np.abs(mine - not_mine)), 0, decimal=8)
 
         # Now a test on the optimization version
         wrapO = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T_fin=T_fin, Nt=Nt, time_dependent=True,
-                                                         for_optimization=True, verbose=True)
+                                                         fast=True, verbose=True)
         # Test without explicit indices
         mineO = wrapO(P[[0, 1, 2], :])
         np.testing.assert_almost_equal(np.max(np.abs(mineO - not_mine)), 0, decimal=8)
@@ -664,10 +664,10 @@ PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[0], coords[t <=.5
         np.testing.assert_array_equal(approx_grad_eval[:,1:,1],0)
         np.testing.assert_array_equal(approx_grad_eval[:,[0,2],0],0)
 
-        #test new for_optimization indexing
+        #test new fast indexing
         # vector of coordinates.
         grad_approxim_optim = PDEFEMCode.interface.FenicsRectangleVecInterpolator(nx, ny, P0, P1, u_fenics_grad_list,
-                                                                            time_dependent=True, Nt=Nt, T_fin=1, for_optimization=True)
+                                                                            time_dependent=True, Nt=Nt, T_fin=1, fast=True)
         coords = np.random.uniform(P0 + eps, P1 - eps, (3, 2))
         times_optim = np.array([0,1,1]).astype(int)
         approx_grad_optim_eval  = grad_approxim_optim(coords,times_optim)

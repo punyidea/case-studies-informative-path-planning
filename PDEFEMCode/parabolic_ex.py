@@ -89,9 +89,9 @@ for n in range(Nt):
 fenics_list.insert(0, fc.interpolate(fc.Constant(0), fn_space))
 
 # Obtaining the interpolator for u
-u = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, fenics_list, T_fin=T_fin, Nt=Nt, time_dependent=True, verbose=True, for_optimization=True)
+u = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, fenics_list, T_fin=T_fin, Nt=Nt, time_dependent=True, verbose=True, fast=True)
 grad_u_list = [pde_utils.fenics_grad(mesh,u_fenics) for u_fenics in fenics_list]
-grad_u = pde_IO.FenicsRectangleVecInterpolator(nx, ny, P0, P1, grad_u_list, T_fin=T_fin, Nt=Nt, time_dependent=True, for_optimization=True)
+grad_u = pde_IO.FenicsRectangleVecInterpolator(nx, ny, P0, P1, grad_u_list, T_fin=T_fin, Nt=Nt, time_dependent=True, fast=True)
 
 param_save = {'f':u,'grad_f':grad_u}
 
