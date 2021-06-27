@@ -414,7 +414,7 @@ class TestPDEParabolicSolver(TestCase):
         # ucase2 = '0'
         # ucond1 = '2 + 4*pow(x[0],2) + 4*pow(x[1],2) + cos(t) + sin(t) < 2*(2*(x[0] + x[1]) + x[0]*cos(t) + x[1]*sin(t))'
         # uexpr = ucond1 + ' ? ' + ucase1 + ' : ' + ucase2
-        u_ref = fc.Expression('0', degree=6, t=0)
+        u_ref = fc.Expression('0', degree=6, t=0)   # No exact solution available, this is dummy
 
         # Setting up a test for the order of convergence
         self.ooc_arrays(4, 7, 9)
@@ -446,6 +446,47 @@ class TestPDEParabolicSolver(TestCase):
         ooc = self.compute_ooc(err_tot)
         np.testing.assert_almost_equal(ooc[-1], 1, 0.05)
 
+    def test_non_smooth(self):
+        '''
+        Expected behaviour: the code runs without errors. No analytical solution is provided here, this is just a test
+        for conditional expressions.
+        '''
+
+        xp1 = '3/8'
+        xc1 = 't<=1||t>4'
+        xp2 = '5/8	'
+        xc2 = '2<t && t<=4'
+        xp3 = '1/8 * (1+2 * t)'
+
+        yp1 = '5/8'
+        yc1 = '1<t && t<=2'
+        yp2 = '1/8 * (9-2 * t)'
+        yc2 = '2<t && t<=3'
+        yp3 = '1/8 * (-3+2 * t)'
+        yc3 = '3<t && t<=4'
+        yp4 = '1/8 * (3+2 * t)'
+
+        y_traj = yc1 + ' ? ' + yp1 + ' :  (' + yc2 + ' ? ' + yp2 + ' :  ( ' + yc3 + ' ? ' + yp3 + ' : ' + yp4 + ' ) )'
+        x_traj = xc1 + ' ? ' + xp1 + ' :  ( ' + xc2 + ' ? ' + xp2 + ' : ' + xp3 + ' ) '
+
+        b = 'exp(16 + 1/(-0.0625 + pow(x[0] - ' + x_traj + ',2) + pow(x[1] - ' + y_traj + ',2)))'
+        c = 'pow(x[0] - ' + x_traj + ',2) + pow(x[1] - ' + y_traj + ',2) < 0.0625'
+
+        fexpr = c + ' ? ' + b + ' : ' + '0'
+
+        RHS_fn = fc.Expression(fexpr, degree=6, t=0)
+
+        # ucase1 = '(exp(16 + 1/(-0.0625 + pow(-0.5 + x[0] - cos(t)/4.,2) + pow(-0.5 + x[1] - sin(t)/4.,2)))*pow(sin((' \
+        #          '3*t)/2.),2))/2. '
+        # ucase2 = '0'
+        # ucond1 = '2 + 4*pow(x[0],2) + 4*pow(x[1],2) + cos(t) + sin(t) < 2*(2*(x[0] + x[1]) + x[0]*cos(t) + x[1]*sin(t))'
+        # uexpr = ucond1 + ' ? ' + ucase1 + ' : ' + ucase2
+        u_ref = fc.Expression('0', degree=6, t=0)
+
+        # Setting up a test for the order of convergence
+        self.ooc_arrays(4, 7, 9)
+        err_type = 'L2'  # error to be outputted ('uni', 'L2', 'H1')
+        _ = self.solve_obtain_error(RHS_fn, u_ref, 0.5, err_type, verbose=True)
 
 class TestInterpolators(unittest.TestCase):
     '''
