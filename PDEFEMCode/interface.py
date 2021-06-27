@@ -129,8 +129,8 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
             u = pde_IO.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T_fin=T_fin, Nt=Nt, time_dependent=True)
             P = np.array([[5.1, 22], [10, 18], [8, 23]])
             times = [-100, 1, .4]   # vector of times, same length of P
-            u(P, times) # return a 3 vector
-            u(P) # luckily, [0,.5,1], the times of the PDE simulation, also has length 3, so a 3 vector is returned.
+            u(P, times, optimization_mode = True) # return a 3 vector
+            u(P, optimization_mode = True) # luckily, [0,.5,1], the times of the PDE simulation, also has length 3, so a 3 vector is returned.
                  # It contains fenics_functioni(P_i) at every index i
 
      3) almost the same interpolator of 2.2), with the difference that instead of real times, now we must input a list
