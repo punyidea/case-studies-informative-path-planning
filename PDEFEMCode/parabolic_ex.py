@@ -83,7 +83,7 @@ for n in range(Nt):
     fenics_list.append(u_current)
 
     # Notify that something has happened
-    print("Solving PDE, " + str(np.floor(100 * t)) + " % done.")
+    print("Solving PDE, " + str(np.floor(100 * t/T_fin)) + " % done.")
 
 # Prepending initial condition
 fenics_list.insert(0, fc.interpolate(fc.Constant(0), fn_space))
