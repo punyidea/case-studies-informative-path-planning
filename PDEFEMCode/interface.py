@@ -49,14 +49,10 @@ class VarFormulationParams:
                                     # the variational form setup. See elliptic_LHS, heat_eq_LHS for examples.
     RHS_form_str: str           # The function name, in string form, used to construct the left hand integral in
                                     # the variational form setup. See elliptic_RHS, heat_eq_RHS for examples.
-    LHS: 'typing.Callable' = field(init=False) #Set in post processing: function handles to LHS and RHS.
-    RHS: 'typing.Callable' = field(init=False)
 
     rhs_exp_params: dict # Extra keyword arguments used in the construction of the RHS expression by the rhs_expression.
     rhs_expression_fn_str: str = '' # The function name, in string form, used to generate a FEniCS
     rhs_expression_str: str = ''    # If rhs_expression_fn_str is not set: This string will be used as the valid FEniCS expression for the RHS.
-    rhs_expression: 'typing.Callable' = field(init=False) # Set in post processing: a function handle to a function that generates a valid FEniCS string.
-                                # See gaussian_expression_2D for an example.
 
 @dataclass
 class TimeDiscParams:

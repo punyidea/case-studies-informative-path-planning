@@ -3,7 +3,8 @@ This file is a  working example of an elliptic (time independent) PDE solver.
 
 
 '''
-import PDEFEMCode.fenics_utils
+#import PDEFEMCode.fenics_utils
+# todo (victor): cleanup imports.
 import PDEFEMCode.interface
 import PDEFEMCode.fenics_utils as pde_utils
 import PDEFEMCode.interface as pde_IO
@@ -15,7 +16,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-y','--yaml_fname',required=True)
 args = parser.parse_args()
 params_yml = pde_IO.yaml_load(args.yaml_fname)
-in_params = PDEFEMCode.fenics_utils.yaml_parse_elliptic(params_yml, args.yaml_fname)
+in_params = pde_utils.yaml_parse_elliptic(params_yml, args.yaml_fname)
 
 
 # Set up the LHS and RHS forms that are used.
@@ -24,6 +25,7 @@ in_params = PDEFEMCode.fenics_utils.yaml_parse_elliptic(params_yml, args.yaml_fn
 # for u = u_max * exp(|x-gamma|^2/ r^2) a Gaussian point source (at gamma).
 #   (see functions elliptic_LHS, elliptic_RHS for templates on how to change the PDE.)
 var_form_p = in_params.var_form
+var_form_fn_handles = pde_utils.VarFormFnHandles(var_form_p)
 
 # Note: the expression below is using the string format function to build it.
 #   Gamma is split into two separate numbers.
@@ -43,14 +45,14 @@ v_test = fc.TestFunction(fn_space)
 # Setup variational formulation, tying the LHS form with the trial function
 # and the RHS form with the test functions and the RHS function.
 if not var_form_p.rhs_expression_str:
-    var_form_p.rhs_expression_str = var_form_p.rhs_expression(**var_form_p.rhs_exp_params)
+    var_form_p.rhs_expression_str = var_form_fn_handles.rhs_expression(**var_form_p.rhs_exp_params)
 
 
 RHS_fn = fc.Expression(var_form_p.rhs_expression_str, element = fn_space.ufl_element())
 LHS_int, RHS_int = pde_utils.variational_formulation(
     u_trial, v_test,
-    var_form_p.LHS,
-    var_form_p.RHS, RHS_fn
+    var_form_fn_handles.LHS,
+    var_form_fn_handles.RHS, RHS_fn
 )
 
 u_sol = pde_utils.solve_vp(fn_space,LHS_int,RHS_int)
@@ -66,6 +68,7 @@ param_save = {'f':f,'grad_f':grad_f,'params':in_params}
 pde_IO.pickle_save(io_p.out_folder,io_p.out_file_prefix,param_save)
 
 # # Code snippet to build intuition on the objects.
+# todo (victor): move snippet to Jupyter notebook.
 # import matplotlib.pyplot as plt
 # coords = np.stack(np.meshgrid(np.linspace(0,1,200),np.linspace(0,1,200)),axis = -1)
 # coords_rs = coords.reshape(-1,2)

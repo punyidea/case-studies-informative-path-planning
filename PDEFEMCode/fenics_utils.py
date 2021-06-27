@@ -6,10 +6,40 @@ Documentation assumes that fenics 2019.1.0 is used, and imported by
 import fenics as fc
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
+from dataclasses import dataclass,field
 
 from PDEFEMCode.interface import RectMeshParams, IOParams, VarFormulationParams, TimeDiscParams, EllipticRunParams, \
-    ParabolicRunParams
+  ParabolicRunParams
 
+@dataclass
+class VarFormFnHandles:
+    '''
+    A class which stores all function handles used in the script.
+    This is stored separately from other dataclasses to avoid
+        a dependency on FEniCS when opening the pkl file.
+    '''
+    LHS: 'typing.Callable' # Function handle to the LHS form used in setting up the PDE.
+    RHS: 'typing.Callable' # Function handle to the RHS form used in setting up the PDE.
+    rhs_expression: 'typing.Callable' #Function handle to a function which generates a valid FEniCS expression, when necessary.
+    def __init__(self,var_form_p):
+        '''
+        Get the function handles from a VarFormulationParams object.
+        :param var_form_p: a VarFormulationParams object.
+        '''
+
+        self.LHS = get_function_from_str(var_form_p.LHS_form_str)
+        self.RHS = get_function_from_str(var_form_p.RHS_form_str)
+
+        if not var_form_p.rhs_expression_str:
+            self.rhs_expression = get_function_from_str(var_form_p.rhs_expression_fn_str)
+        if var_form_p.rhs_expression_str and var_form_p.rhs_expression_fn_str:
+            Warning(
+                'Both a fenics string and string specifying which function to '
+                'use to construct the FEniCS expression string are defined.\n'
+                'Function string is ignored.')
+        if not (var_form_p.rhs_expression_str or var_form_p.rhs_expression_fn_str):
+            raise Exception('No RHS function was provided, either in string generating '
+                            'function or FEniCS expression string.')
 
 def get_function_from_str(fname):
     '''
@@ -24,47 +54,6 @@ def get_function_from_str(fname):
     except KeyError:
         raise ValueError('The function {} was not defined in the fenics_utils file.'.format(fname))
 
-def post_process_var_form_p(var_form_p):
-    '''
-    Performs post processing on the variational form parameter variable.
-    Key functionality is to assign the correct function handles to LHS, RHS
-        from the strings.
-    Also, if no expression string has been explicitly set, assign the correct function handle.
-    :param var_form_p:
-    :return:
-    '''
-    var_form_p.LHS = get_function_from_str(var_form_p.LHS_form_str)
-    var_form_p.RHS = get_function_from_str(var_form_p.RHS_form_str)
-    if not var_form_p.rhs_expression_str:
-        var_form_p.rhs_expression = get_function_from_str(var_form_p.rhs_expression_fn_str)
-    if var_form_p.rhs_expression_str and var_form_p.rhs_expression_fn_str:
-        Warning('Both a fenics string and string specifying which function to use to construct the FEniCS expression string are defined.\n'
-                'Function string is ignored.')
-    return var_form_p
-
-def post_process_io_p(io_p):
-    '''
-    :param io_p: an IOParams object.
-    :return:
-    '''
-
-    return io_p
-
-def post_process_rect_mesh_p(rmesh_p):
-    '''
-
-    :param rmesh_p: A RectMeshParams object.
-    :return:
-    '''
-    return rmesh_p
-
-def post_process_time_disc(time_disc_p):
-    '''
-
-    :param time_disc_p: a TimeDiscParams object.
-    :return:
-    '''
-    return time_disc_p
 
 def post_process_parabolic_run_params(parabolic_p):
     '''
@@ -82,18 +71,13 @@ def yaml_parse_elliptic(par_obj,in_fname):
         to place it in the correct data structures.
     :param par_obj: The object returned by PYYAML library
     :param in_fname: The name of the yaml file it was read from. (stored in IOParams)
-    :return: The (parsed and partially validated) EllipticRunParams structure which allows elloptic_ex.py to run.
+    :return: The (parsed and partially validated, through variable names) EllipticRunParams structure which allows elloptic_ex.py to run.
     '''
 
     par_prep ={}
-    var_form_p = VarFormulationParams(**par_obj['var_form'])
-    par_prep['var_form'] = post_process_var_form_p(var_form_p)
-
-    io_p = IOParams(in_file = in_fname, **par_obj['io'])
-    par_prep['io'] = post_process_io_p(io_p)
-
-    rmesh_p= RectMeshParams(**par_obj['rect_mesh'])
-    par_prep['rect_mesh'] = post_process_rect_mesh_p(rmesh_p)
+    par_prep['var_form'] = VarFormulationParams(**par_obj['var_form'])
+    par_prep['io'] = IOParams(in_file = in_fname, **par_obj['io'])
+    par_prep['rect_mesh'] = RectMeshParams(**par_obj['rect_mesh'])
 
     ret_params = EllipticRunParams(**par_prep)
     return ret_params
@@ -105,7 +89,7 @@ def yaml_parse_parabolic(par_obj,in_fname):
         to place it in the correct data structures.
     :param par_obj: The object returned by PYYAML library
     :param in_fname: The name of the yaml file it was read from. (stored in IOParams)
-    :return: The (parsed and partially validated) ParabolicRunParams structure which allows elloptic_ex.py to run.
+    :return: The (parsed and partially validated, through variable names) ParabolicRunParams structure which allows elloptic_ex.py to run.
 
     :param par_obj:
     :param in_fname:
@@ -113,17 +97,11 @@ def yaml_parse_parabolic(par_obj,in_fname):
     '''
 
     par_prep ={}
-    var_form_p = VarFormulationParams(**par_obj['var_form'])
-    par_prep['var_form'] = post_process_var_form_p(var_form_p)
+    par_prep['var_form'] = VarFormulationParams(**par_obj['var_form'])
+    par_prep['io'] = IOParams(in_file=in_fname, **par_obj['io'])
+    par_prep['rect_mesh'] = RectMeshParams(**par_obj['rect_mesh'])
+    par_prep['time_disc'] = TimeDiscParams(**par_obj['time_disc'])
 
-    io_p = IOParams(in_file=in_fname, **par_obj['io'])
-    par_prep['io'] = post_process_io_p(io_p)
-
-    rmesh_p = RectMeshParams(**par_obj['rect_mesh'])
-    par_prep['rect_mesh'] = post_process_rect_mesh_p(rmesh_p)
-
-    time_disc_p = TimeDiscParams(**par_obj['time_disc'])
-    par_prep['time_disc'] = post_process_time_disc(time_disc_p)
     ret_params = ParabolicRunParams(**par_prep)
     ret_params = post_process_parabolic_run_params(ret_params)
     return ret_params

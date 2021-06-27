@@ -24,6 +24,7 @@ params_yml = pde_IO.yaml_load(args.yaml_fname)
 in_params = pde_utils.yaml_parse_parabolic(params_yml, args.yaml_fname)
 
 var_form_p = in_params.var_form
+var_form_fn_handles = pde_utils.VarFormFnHandles(var_form_p)
 
 # Parameters determining the mesh.
 # This is a triangular mesh on the unit square, where we have [0,1]^2 divided into 100 x 100 sub-squares, each one
@@ -45,6 +46,9 @@ dt, times = pde_utils.setup_time_discretization(time_disc_p)
 u_ref = fc.Expression('((-3*pow(x[0],2) + 2*pow(x[0],3) + pow(x[1],2)*(-3 + 2*x[1]))*(-1 + cos(3*t)))/4',
                       degree=2, t=0)
 
+if not var_form_p.rhs_expression_str:
+    var_form_p.rhs_expression_str = var_form_fn_handles.rhs_expression(**var_form_p.rhs_exp_params)
+
 RHS_fn = fc.Expression(
     var_form_p.rhs_expression_str, degree=2, t=0)
 
@@ -57,8 +61,8 @@ v_test = fc.TestFunction(fn_space)
 u_previous = u_initial
 LHS_int, RHS_int = pde_utils.variational_formulation(
     u_trial, v_test,
-    var_form_p.LHS,
-    var_form_p.RHS, RHS_fn,
+    var_form_fn_handles.LHS,
+    var_form_fn_handles.RHS, RHS_fn,
     {'dt': dt},
     {'dt': dt, 'u_previous': u_previous}
 )
@@ -94,4 +98,3 @@ grad_u = pde_IO.FenicsRectangleVecInterpolator(mesh_p, grad_u_list, T_fin=time_d
 param_save = {'f':u,'grad_f':grad_u,'params':in_params}
 
 pde_IO.pickle_save(io_p.out_folder,io_p.out_file_prefix,param_save)
-# Please check the documentation of FenicsRectangleLinearInterpolator for examples of usage

@@ -23,19 +23,19 @@ var_form:
 # Parameters determining the mesh.
 # As is, it is a square 0.05 step size mesh on the unit square
 rect_mesh:
-  nx: 20 # number of divisions of the unit interval in x, included in the mesh.
+  nx: 100 # number of divisions of the unit interval in x, included in the mesh.
   # There are nx + 1 distinct x coordinates in the mesh.
-  ny: 20 # same as above, for y.
+  ny: 100 # same as above, for y.
   P0: [0,0] # Coordinates of the bottom left of the rectangular mesh.
   P1: [1,1] # Coordinates of the top right of the rectangular mesh
 
 # Parameters related to the time discretization of the parabolic problem.
 time_disc:
-  T_fin: 1.0 #Ending time
-  Nt: -1 # If -1, the default is nx*ny distinct timesteps.
+  T_fin: 100 #Ending time
+  Nt: 100 # If -1, the default is nx*ny distinct timesteps.
 
 # IO Properties
 io:
-  out_file_prefix: 'parabolic_square_mesh_interp' #file name without the default .pkl extension.
+  out_file_prefix: 'parabolic_nx_100_nt_100_moving_bump' #file name without the default .pkl extension.
   out_folder: ''#Path to file. Leave blank to save in the current directory.
 
