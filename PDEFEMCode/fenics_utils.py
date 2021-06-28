@@ -220,10 +220,10 @@ def elliptic_LHS(u_trial, v_test, **kwargs):
 
 def elliptic_RHS(v_test, RHS_fn, **kwargs):
     '''
-    returns the RHSof the elliptic problem provided in the project handout:
+    returns the RHS of the elliptic problem provided in the project handout:
     \Delta u + u = f  => \int (grad(u) dot grad(v)  + u*x) dx = \int f*v dx
     :param v_test: The test function space defined on the FENICS Fn space.
-        (You obtain this by calling u_trial = fc.TestFunction(V))
+        (You obtain this by calling u_test = fc.TestFunction(V))
     :param RHS_fn: a FENICS function evaluated on the function space.
         (obtained by calling fc.
     :return: an integral form of the equation, ready to be used in solve_pde.

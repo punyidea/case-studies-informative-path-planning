@@ -11,7 +11,7 @@ initial condition.
 '''
 
 import PDEFEMCode.fenics_utils as pde_utils
-import PDEFEMCode.interface as pde_IO
+import PDEFEMCode.interface as pde_interface
 import fenics as fc
 import numpy as np
 import argparse,sys
@@ -20,7 +20,7 @@ import argparse,sys
 parser = argparse.ArgumentParser()
 parser.add_argument('-y','--yaml_fname',required=True)
 args = parser.parse_args()
-params_yml = pde_IO.yaml_load(args.yaml_fname)
+params_yml = pde_interface.yaml_load(args.yaml_fname)
 in_params = pde_utils.yaml_parse_parabolic(params_yml, args.yaml_fname)
 
 var_form_p = in_params.var_form
@@ -91,10 +91,10 @@ for n in range(time_disc_p.Nt):
 fenics_list.insert(0, fc.interpolate(fc.Constant(0), fn_space))
 
 # Obtaining the interpolator for u
-u = pde_IO.FenicsRectangleLinearInterpolator(mesh_p, fenics_list, T_fin=time_disc_p.T_fin, Nt=time_disc_p.Nt, time_dependent=True, verbose=True, fast=True)
+u = pde_interface.FenicsRectangleLinearInterpolator(mesh_p, fenics_list, T_fin=time_disc_p.T_fin, Nt=time_disc_p.Nt, time_dependent=True, verbose=True, time_as_indices=True)
 grad_u_list = [pde_utils.fenics_grad(mesh,u_fenics) for u_fenics in fenics_list]
-grad_u = pde_IO.FenicsRectangleVecInterpolator(mesh_p, grad_u_list, T_fin=time_disc_p.T_fin, Nt=time_disc_p.Nt, time_dependent=True, fast=True)
+grad_u = pde_interface.FenicsRectangleVecInterpolator(mesh_p, grad_u_list, T_fin=time_disc_p.T_fin, Nt=time_disc_p.Nt, time_dependent=True, time_as_indices=True)
 
 param_save = {'f':u,'grad_f':grad_u,'params':in_params}
 
-pde_IO.pickle_save(io_p.out_folder,io_p.out_file_prefix,param_save)
+pde_interface.pickle_save(io_p.out_folder, io_p.out_file_prefix, param_save)

@@ -524,7 +524,7 @@ class TestInterpolators(unittest.TestCase):
 
         # Note, for very 'high' functions, the difference between me and Fenics is O(1e-6), instead of O(1e-13)
         wrap = pde_IO.FenicsRectangleLinearInterpolator(rmesh_p, list_fenics, T_fin=T_fin, Nt=Nt, time_dependent=True,
-                                                        fast=False, verbose=True)
+                                                        time_as_indices=False, verbose=True)
 
         P = np.array([[5.1, 22], [10, 18], [8, 23], [9.5, 1.1], [10, 2.5], [10, 23]])
 
@@ -565,7 +565,7 @@ class TestInterpolators(unittest.TestCase):
 
         # Now a test on the optimization version
         wrapO = pde_IO.FenicsRectangleLinearInterpolator(rmesh_p, list_fenics, T_fin=T_fin, Nt=Nt, time_dependent=True,
-                                                         fast=True, verbose=True)
+                                                         time_as_indices=True, verbose=True)
         # Test without explicit indices
         mineO = wrapO(P[[0, 1, 2], :])
         np.testing.assert_almost_equal(np.max(np.abs(mineO - not_mine)), 0, decimal=8)
@@ -699,20 +699,20 @@ PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[0], coords[t <=.5
                                                                                    coords[t > .5, :])
                                        )
 
-        #three points, four times. Check we are out of bounds in the correct places.
+        #three points, four times. Check we are out of bounds (therefore 0) in the correct places.
         coords = np.array([[2,15],[4,0],[3,200]])
         times = np.random.uniform(0,1,(4,1))
         approx_grad_eval = grad_approxim(coords,times)
         np.testing.assert_array_equal(approx_grad_eval[:,1:,1],0)
         np.testing.assert_array_equal(approx_grad_eval[:,[0,2],0],0)
 
-        #test new fast indexing
+        #test new time_as_indices indexing
         # vector of coordinates.
-        grad_approxim_optim = PDEFEMCode.interface.FenicsRectangleVecInterpolator(rmesh_p, u_fenics_grad_list,
-                                                                            time_dependent=True, Nt=Nt, T_fin=1, fast=True)
+        grad_approxim_tai = PDEFEMCode.interface.FenicsRectangleVecInterpolator(rmesh_p, u_fenics_grad_list,
+                                                                                  time_dependent=True, Nt=Nt, T_fin=1, time_as_indices=True)
         coords = np.random.uniform(rmesh_p.P0 + eps, rmesh_p.P1 - eps, (3, 2))
         times_optim = np.array([0,1,1]).astype(int)
-        approx_grad_optim_eval  = grad_approxim_optim(coords,times_optim)
+        approx_grad_optim_eval  = grad_approxim_tai(coords,times_optim)
         np.testing.assert_almost_equal(approx_grad_optim_eval[times_optim == 0, :],
                                        PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[0],
                                                                                    coords[times_optim==0, :]))
@@ -723,12 +723,12 @@ PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[0], coords[t <=.5
         #test single coordinate.
         coord = np.random.uniform(rmesh_p.P0 + eps, rmesh_p.P1 - eps, (2,))
         time_optim = 1
-        approx_grad_optim_eval = grad_approxim_optim(coord, time_optim)
+        approx_grad_optim_eval = grad_approxim_tai(coord, time_optim)
         np.testing.assert_almost_equal(approx_grad_optim_eval,
                                       PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[time_optim],
                                                                                   coord))
         # test no time given.
-        approx_grad_optim_allt_eval = grad_approxim_optim(coord)
+        approx_grad_optim_allt_eval = grad_approxim_tai(coord)
         np.testing.assert_almost_equal(approx_grad_optim_allt_eval[0,:],
                                        PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[0],
                                                                                    coord))

@@ -7,7 +7,7 @@ This file is a  working example of an elliptic (time independent) PDE solver.
 # todo (victor): cleanup imports.
 import PDEFEMCode.interface
 import PDEFEMCode.fenics_utils as pde_utils
-import PDEFEMCode.interface as pde_IO
+import PDEFEMCode.interface as pde_interface
 import fenics as fc
 import numpy as np
 import argparse, sys
@@ -15,7 +15,7 @@ import argparse, sys
 parser = argparse.ArgumentParser()
 parser.add_argument('-y','--yaml_fname',required=True)
 args = parser.parse_args()
-params_yml = pde_IO.yaml_load(args.yaml_fname)
+params_yml = pde_interface.yaml_load(args.yaml_fname)
 in_params = pde_utils.yaml_parse_elliptic(params_yml, args.yaml_fname)
 
 
@@ -59,13 +59,13 @@ u_sol = pde_utils.solve_vp(fn_space,LHS_int,RHS_int)
 
 # Obtain solution functions, such that they work with numpy.
 
-f = PDEFEMCode.interface.FenicsRectangleLinearInterpolator(mesh_p, u_sol)
+f = pde_interface.FenicsRectangleLinearInterpolator(mesh_p, u_sol)
 u_grad = pde_utils.fenics_grad(mesh,u_sol)
-grad_f = PDEFEMCode.interface.FenicsRectangleVecInterpolator(mesh_p, u_grad)
+grad_f = pde_interface.FenicsRectangleVecInterpolator(mesh_p, u_grad)
 
 param_save = {'f':f,'grad_f':grad_f,'params':in_params}
 
-pde_IO.pickle_save(io_p.out_folder,io_p.out_file_prefix,param_save)
+pde_interface.pickle_save(io_p.out_folder, io_p.out_file_prefix, param_save)
 
 # # Code snippet to build intuition on the objects.
 # todo (victor): move snippet to Jupyter notebook.
