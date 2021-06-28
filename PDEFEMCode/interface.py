@@ -132,7 +132,7 @@ class RectangleInterpolator():
 
     '''
 
-    def __init__(self, rmesh_p, fem_data, T_fin=None, Nt=None, time_dependent=False, time_as_indices=False, verbose=False):
+    def __init__(self, rmesh_p, fem_data, T_fin=None, Nt=None, time_dependent=False, time_as_indices=True, verbose=False):
         # Some geometric initializations
         pass
         self.nx = rmesh_p.nx
@@ -167,7 +167,7 @@ class RectangleInterpolator():
         self.ey1 = self.y1+self.hy
 
         # To differentiate which interpolator to return. We now generate helping variables that will make interpolation
-        # faster later on
+        # er later on
         self.time_dependent = time_dependent
         self.verbose = verbose
 
