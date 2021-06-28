@@ -466,8 +466,8 @@ class TestPDEParabolicSolver(TestCase):
         yc3 = '3<t && t<=4'
         yp4 = '1/8 * (3+2 * t)'
 
-        y_traj = yc1 + ' ? ' + yp1 + ' :  (' + yc2 + ' ? ' + yp2 + ' :  ( ' + yc3 + ' ? ' + yp3 + ' : ' + yp4 + ' ) )'
-        x_traj = xc1 + ' ? ' + xp1 + ' :  ( ' + xc2 + ' ? ' + xp2 + ' : ' + xp3 + ' ) '
+        y_traj ='(' + yc1 + ' ? ' + yp1 + ' :  (' + yc2 + ' ? ' + yp2 + ' :  ( ' + yc3 + ' ? ' + yp3 + ' : ' + yp4 + ' )))'
+        x_traj = '(' + xc1 + ' ? ' + xp1 + ' :  ( ' + xc2 + ' ? ' + xp2 + ' : ' + xp3 + ' ))'
 
         b = 'exp(16 + 1/(-0.0625 + pow(x[0] - ' + x_traj + ',2) + pow(x[1] - ' + y_traj + ',2)))'
         c = 'pow(x[0] - ' + x_traj + ',2) + pow(x[1] - ' + y_traj + ',2) < 0.0625'
