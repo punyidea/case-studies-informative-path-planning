@@ -6,7 +6,105 @@ Documentation assumes that fenics 2019.1.0 is used, and imported by
 import fenics as fc
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
+from dataclasses import dataclass,field
 
+from PDEFEMCode.interface import RectMeshParams, IOParams, VarFormulationParams, TimeDiscParams, EllipticRunParams, \
+  ParabolicRunParams
+
+@dataclass
+class VarFormFnHandles:
+    '''
+    A class which stores all function handles used in the script.
+    This is stored separately from other dataclasses to avoid
+        a dependency on FEniCS when opening the pkl file.
+    '''
+    LHS: 'typing.Callable' # Function handle to the LHS form used in setting up the PDE.
+    RHS: 'typing.Callable' # Function handle to the RHS form used in setting up the PDE.
+    rhs_expression: 'typing.Callable' #Function handle to a function which generates a valid FEniCS expression, when necessary.
+    def __init__(self,var_form_p):
+        '''
+        Get the function handles from a VarFormulationParams object.
+        :param var_form_p: a VarFormulationParams object.
+        '''
+
+        self.LHS = get_function_from_str(var_form_p.LHS_form_str)
+        self.RHS = get_function_from_str(var_form_p.RHS_form_str)
+
+        if not var_form_p.rhs_expression_str:
+            self.rhs_expression = get_function_from_str(var_form_p.rhs_expression_fn_str)
+        if var_form_p.rhs_expression_str and var_form_p.rhs_expression_fn_str:
+            Warning(
+                'Both a fenics string and string specifying which function to '
+                'use to construct the FEniCS expression string are defined.\n'
+                'Function string is ignored.')
+        if not (var_form_p.rhs_expression_str or var_form_p.rhs_expression_fn_str):
+            raise Exception('No RHS function was provided, either in string generating '
+                            'function or FEniCS expression string.')
+
+def get_function_from_str(fname):
+    '''
+    See
+    https://web.archive.org/web/20210614165007/https://stackoverflow.com/questions/3061/calling-a-function-of-a-module-by-using-its-name-a-string
+    :param fname: A string version of the function which is inside of this file.
+    :return: The function as a function object.
+    '''
+    try:
+        fn = globals().copy()[fname]
+        return fn
+    except KeyError:
+        raise ValueError('The function {} was not defined in the fenics_utils file.'.format(fname))
+
+
+def post_process_parabolic_run_params(parabolic_p):
+    '''
+    Post processing on the parabolic run parameters. Default behavior is
+    :param parabolic_p:  a ParabolicRunParams object.
+    :return:
+    '''
+    if parabolic_p.time_disc.Nt == -1:
+        parabolic_p.time_disc.Nt = parabolic_p.rect_mesh.nx*parabolic_p.rect_mesh.ny
+    return parabolic_p
+
+def yaml_parse_elliptic(par_obj,in_fname):
+    '''
+    Parses the YAML object given by PYYaml (a dictionary)
+        to place it in the correct data structures.
+    :param par_obj: The object returned by PYYAML library
+    :param in_fname: The name of the yaml file it was read from. (stored in IOParams)
+    :return: The (parsed and partially validated, through variable names) EllipticRunParams structure which allows elloptic_ex.py to run.
+    '''
+
+    par_prep ={}
+    par_prep['var_form'] = VarFormulationParams(**par_obj['var_form'])
+    par_prep['io'] = IOParams(in_file = in_fname, **par_obj['io'])
+    par_prep['rect_mesh'] = RectMeshParams(**par_obj['rect_mesh'])
+
+    ret_params = EllipticRunParams(**par_prep)
+    return ret_params
+
+def yaml_parse_parabolic(par_obj,in_fname):
+    '''
+
+    Parses the YAML object given by PYYaml (a dictionary)
+        to place it in the correct data structures.
+    :param par_obj: The object returned by PYYAML library
+    :param in_fname: The name of the yaml file it was read from. (stored in IOParams)
+    :return: The (parsed and partially validated, through variable names) ParabolicRunParams structure which allows elloptic_ex.py to run.
+
+    :param par_obj:
+    :param in_fname:
+    :return:
+    '''
+
+    par_prep ={}
+    par_prep['var_form'] = VarFormulationParams(**par_obj['var_form'])
+    par_prep['io'] = IOParams(in_file=in_fname, **par_obj['io'])
+    par_prep['rect_mesh'] = RectMeshParams(**par_obj['rect_mesh'])
+    par_prep['time_disc'] = TimeDiscParams(**par_obj['time_disc'])
+
+    ret_params = ParabolicRunParams(**par_prep)
+    ret_params = post_process_parabolic_run_params(ret_params)
+    return ret_params
 
 def setup_unitsquare_function_space(n):
     """
@@ -27,14 +125,12 @@ def setup_unitsquare_function_space(n):
     fn_space = fc.FunctionSpace(mesh, 'Lagrange', 1)
     return mesh,fn_space
 
-def setup_rectangular_function_space(nx, ny, P0, P1):
+def setup_rectangular_function_space(rmesh_p):
     """
     Sets up the dicrete function space on a rectangle with lower left corner P0, upper right corner P1.
     This includes preparing the mesh and basis functions on the mesh.
 
-    :param P0: np.array of two coordinates, indicating the lower left rectangle of the mesh
-    :param P1: np.array of two coordinates, indicating the upper right rectangle of the mesh
-
+    :param rmesh_p: The RectMeshParams object which describes the structure of the rectangular mesh.
     :return:
         - mesh, a mesh on the rectangle with lower left corner P0, upper right corner P1.
             nx means a nx+1 uniform subdivision in the x direction, analogously for ny
@@ -44,24 +140,23 @@ def setup_rectangular_function_space(nx, ny, P0, P1):
         - fn_space, the FENICS function space of  linear FE on this mesh. The "hat functions" are used as a basis.
     """
     # Create mesh and define function space
-    mesh = fc.RectangleMesh(fc.Point(P0[0], P0[1]), fc.Point(P1[0], P1[1]), nx, ny)
+    mesh = fc.RectangleMesh(fc.Point(rmesh_p.P0[0], rmesh_p.P0[1]),
+                            fc.Point(rmesh_p.P1[0], rmesh_p.P1[1]),
+                            rmesh_p.nx, rmesh_p.ny)
     fn_space = fc.FunctionSpace(mesh, 'Lagrange', 1)
     return mesh, fn_space
 
 
-def setup_time_discretization(T_fin, Nt):
+def setup_time_discretization(time_disc_p):
     """
-
-    :param T_fin: because we study the PDE in [0,T_fin]
-    :param Nt: for time discretization, we only look at a uniform dicretization of [0,T_fin] of Nt+1 instants
-
+    :param time_disc_p: The TimeDiscParams object which describes how the time space is discretised.
     :return:
-        - dt: dt  = T_fin/Nt
-        - times: a vector of Nt+1 evenly spaced time instants 0, dt, 2*dt, ... T_fin
+        - dt: dt  = time_disc_p.T_fin/time_disc_p.Nt
+        - times: a vector of Nt+1 evenly spaced time instants 0, dt, 2*dt, ... time_disc_p.T_fin
     """
     # Create mesh and define function space
-    dt = 1 / Nt
-    times = np.linspace(0, T_fin, Nt + 1)
+    dt = 1 / time_disc_p.Nt
+    times = np.linspace(0, time_disc_p.T_fin, time_disc_p.Nt + 1)
     return dt, times
 
 def variational_formulation(u_trial, v_test, LHS, RHS, RHS_fn, LHS_args=None, RHS_args=None):
@@ -257,4 +352,5 @@ def fenics_grad(mesh, u_fenics):
     gradspace = fc.VectorFunctionSpace(mesh,'DG',0) #discontinuous lagrange.
     grad_fc = fc.project(fc.grad(u_fenics),gradspace)
     return grad_fc
+
 
