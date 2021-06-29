@@ -453,19 +453,29 @@ class TestPDEParabolicSolver(TestCase):
         for conditional expressions.
         '''
 
-        xp1 = '3/8'
+        xp1 = '0.375'
         xc1 = 't<=1||t>4'
-        xp2 = '5/8	'
+        xp2 = '.671875'
         xc2 = '2<t && t<=4'
-        xp3 = '1/8 * (1+2 * t)'
+        xp3 = '.125 * (1+2 * t)'
 
-        yp1 = '5/8'
+        yp1 = '.671875'
         yc1 = '1<t && t<=2'
-        yp2 = '1/8 * (9-2 * t)'
+        yp2 = '.125 * (9-2 * t)'
         yc2 = '2<t && t<=3'
-        yp3 = '1/8 * (-3+2 * t)'
+        yp3 = '.125 * (-3+2 * t)'
         yc3 = '3<t && t<=4'
-        yp4 = '1/8 * (3+2 * t)'
+        yp4 = '.125 * (3+2 * t)'
+
+        y_traj = '(' + yc1 + ' ? ' + yp1 + ' :  (' + yc2 + ' ? ' + yp2 + ' :  ( ' + yc3 + ' ? ' + yp3 + ' : ' + yp4 + ' )))'
+        x_traj = '(' + xc1 + ' ? ' + xp1 + ' :  ( ' + xc2 + ' ? ' + xp2 + ' : ' + xp3 + ' ))'
+
+        b = 'exp(16 + 1/(-0.0625 + pow(x[0] - ' + x_traj + ',2) + pow(x[1] - ' + y_traj + ',2)))'
+        c = 'pow(x[0] - ' + x_traj + ',2) + pow(x[1] - ' + y_traj + ',2) < 0.0625'
+
+        fexpr = c + ' ? ' + b + ' : ' + '0'
+
+        RHS_fn = fc.Expression(fexpr, degree=6, t=0)
 
         y_traj ='(' + yc1 + ' ? ' + yp1 + ' :  (' + yc2 + ' ? ' + yp2 + ' :  ( ' + yc3 + ' ? ' + yp3 + ' : ' + yp4 + ' )))'
         x_traj = '(' + xc1 + ' ? ' + xp1 + ' :  ( ' + xc2 + ' ? ' + xp2 + ' : ' + xp3 + ' ))'
