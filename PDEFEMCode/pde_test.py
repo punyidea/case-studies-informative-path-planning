@@ -25,6 +25,7 @@ def eval_hat(X, Y):
 
 ## Begin Testing code.
 class TestEllipticSolver(TestCase):
+    # todo (Victor): check linearity of PDE solver by checking that multiple bump solution is sum of bumps.
     @classmethod
     def setUpClass(self):
         self.n = 100

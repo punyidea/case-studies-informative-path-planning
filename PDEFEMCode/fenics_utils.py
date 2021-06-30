@@ -289,6 +289,20 @@ def gaussian_expression_2D(gamma,u_max,r):
     '''
     return '{} * exp(-(pow(x[0] - {},2) + pow(x[1] - {},2)) /pow({},2))'.format(u_max,gamma[0],gamma[1], r)
 
+def sum_of_2d_gaussians(gamma_list,u_max_list,r_list):
+    '''
+    Returns a fenics expression that is the sum of gaussians
+    :param gamma_list: a list of
+    :param u_max_list: list of the scaling constants multiplying each gaussian
+    :param r_list: radius parameter of each gaussian.
+    :return: Example: sum_of_2d_gaussians([[0,0],[0,1], [.3,2],[0.05,0.1])
+        returns the sum of: t
+        -- 0.3 *(the gaussian point source centered at the origin with radius 0.05)
+        -- 2 * (the gaussian point source centered at [0,1] with radius 0.1)
+
+    '''
+    return ' + '.join(gaussian_expression_2D(gamma,u_max,r) for gamma,u_max,r in zip(gamma_list,u_max_list,r_list))
+
 def parabolic_double_bump_expr():
     '''
     Insert docstring here.
