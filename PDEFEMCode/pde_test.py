@@ -786,7 +786,7 @@ class TestFenicsFnWrap(unittest.TestCase):
         test_xy(X, Y)
 
 class TestYAMLInterface(unittest.TestCase):
-    test_fname = 'elliptic_params.yaml'
+    test_fname = 'Pickles/elliptic_params.yaml'
 
     @staticmethod
     def load_file(fname):

@@ -132,7 +132,7 @@ class RectangleInterpolator():
 
     '''
 
-    def __init__(self, rmesh_p, fem_data, T_fin=None, Nt=None, time_dependent=False, time_as_indices=False, verbose=False):
+    def __init__(self, rmesh_p, fem_data, T_fin=None, Nt=None, time_dependent=False, time_as_indices=True, verbose=False):
         # Some geometric initializations
         pass
         self.nx = rmesh_p.nx
@@ -167,7 +167,7 @@ class RectangleInterpolator():
         self.ey1 = self.y1+self.hy
 
         # To differentiate which interpolator to return. We now generate helping variables that will make interpolation
-        # faster later on
+        # er later on
         self.time_dependent = time_dependent
         self.verbose = verbose
 
@@ -233,7 +233,7 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
 
      3) almost the same interpolator of 2.2), with the difference that instead of real times, now we must input a list
      of integer time indices, contained in {0,...,Nt}. No time interpolations/clipping are performed here, to get a
-     faster version.
+     faster version (NB. A list!)
         u = pde_interface.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T_fin=T_fin, Nt=Nt, time_dependent=True,
             time_as_indices = True)
         P = np.array([[5.1, 22], [10, 18], [8, 23]])

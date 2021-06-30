@@ -314,7 +314,7 @@ def parabolic_double_bump_expr():
     fcond2 = '2 + 4*pow(x[0],2) + 4*pow(x[1],2) + cos(t) + sin(t) < 2*(2*(x[0] + x[1]) + x[0]*cos(t) + x[1]*sin(t))'
     fcond3 = '2*(1 + 2*pow(x[0],2) + 2*pow(x[1],2) + x[0]*cos(t) + x[1]*sin(t)) < 4*(x[0] + x[1]) + cos(t) + sin(t)'
 
-    # fexpr = fcond1 + ' ? ' + fcase1 + ' : ' + fcase2
+
     fexpr = fcond1 + ' ? ' + fcase1 + ' :  (' + fcond2 + ' ? ' + fcase2 + ' :  ( ' + fcond3 + ' ? ' + fcase3 + ' : ' + fcase4 + ' ) )'
     return fexpr
 
@@ -326,19 +326,19 @@ def parabolic_non_smooth_expr():
      Generates a moving Gaussian bump with a non-differentiable path.
     :return: non_smooth test case.
     '''
-    xp1 = '3/8'
+    xp1 = '0.375'
     xc1 = 't<=1||t>4'
-    xp2 = '5/8	'
+    xp2 = '.671875'
     xc2 = '2<t && t<=4'
-    xp3 = '1/8 * (1+2 * t)'
+    xp3 = '.125 * (1+2 * t)'
 
-    yp1 = '5/8'
+    yp1 = '.671875'
     yc1 = '1<t && t<=2'
-    yp2 = '1/8 * (9-2 * t)'
+    yp2 = '.125 * (9-2 * t)'
     yc2 = '2<t && t<=3'
-    yp3 = '1/8 * (-3+2 * t)'
+    yp3 = '.125 * (-3+2 * t)'
     yc3 = '3<t && t<=4'
-    yp4 = '1/8 * (3+2 * t)'
+    yp4 = '.125 * (3+2 * t)'
 
     y_traj = '(' + yc1 + ' ? ' + yp1 + ' :  (' + yc2 + ' ? ' + yp2 + ' :  ( ' + yc3 + ' ? ' + yp3 + ' : ' + yp4 + ' )))'
     x_traj = '(' + xc1 + ' ? ' + xp1 + ' :  ( ' + xc2 + ' ? ' + xp2 + ' : ' + xp3 + ' ))'
