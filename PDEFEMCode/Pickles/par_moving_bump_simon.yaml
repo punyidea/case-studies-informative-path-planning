@@ -34,6 +34,6 @@ time_disc:
 
 # IO Properties
 io:
-  out_file_prefix: 'parabolic_nx_100_nt_100_par_ex' #file name without the default .pkl extension.
+  out_file_prefix: 'par_moving_bump_simon' #file name without the default .pkl extension.
   out_folder: 'PDEFEMCode/Pickles'#Path to file. Leave blank to save in the current directory.
 
