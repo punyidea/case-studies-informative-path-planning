@@ -282,12 +282,72 @@ def heat_eq_RHS(v_test, RHS_fn, dt=1, u_previous=0):
 def gaussian_expression_2D(gamma,u_max,r):
     '''
     Returns a fenics string which computes the gaussian in 2D.
-    :param gamma:
-    :param u_max:
-    :param r:
+    :param gamma: shape (2,) the center of the gaussian point source
+    :param u_max: Height scaling parameter.
+    :param r: radius parameter.
     :return: the string representation
     '''
     return '{} * exp(-(pow(x[0] - {},2) + pow(x[1] - {},2)) /pow({},2))'.format(u_max,gamma[0],gamma[1], r)
+
+def parabolic_double_bump_expr():
+    '''
+    Insert docstring here.
+    This string is used for a parabolic RHS, since it includes parameter t.
+     Generates a moving Gaussian bump with a non-differentiable path.
+    :return: double_bump test case.
+    '''
+    fcase1 = '(exp(16)*(exp(-t + 1/(-0.0625 + pow(-0.5 + x[0] + cos(t)/4.,2) + pow(-0.5 + x[1] + sin(t)/4.,' \
+             '2)))*(-1 + exp(t))*pow(cos((3*t)/2.),2) + exp(1/(-0.0625 + pow(-0.5 + x[0] - cos(t)/4.,' \
+             '2) + pow(-0.5 + x[1] - sin(t)/4.,2)))*pow(sin((3*t)/2.),2)))/2. '
+    fcase2 = '(exp(16 + 1/(-0.0625 + pow(-0.5 + x[0] - cos(t)/4.,2) + pow(-0.5 + x[1] - sin(t)/4.,2)))*pow(sin((' \
+             '3*t)/2.),2))/2. '
+    fcase3 = '(exp(16 - t + 1/(-0.0625 + pow(-0.5 + x[0] + cos(t)/4.,2) + pow(-0.5 + x[1] + sin(t)/4.,2)))*(-1 + ' \
+             'exp(t))*pow(cos((3*t)/2.),2))/2. '
+    fcase4 = '0'
+
+    fcond11 = '2 + 4*pow(x[0],2) + 4*pow(x[1],2) + cos(t) + sin(t) < 2*(2*(x[0] + x[1]) + x[0]*cos(t) + x[1]*sin(' \
+              't)) '
+    fcond12 = '2*(1 + 2*pow(x[0],2) + 2*pow(x[1],2) + x[0]*cos(t) + x[1]*sin(t)) < 4*(x[0] + x[1]) + cos(t) + ' \
+              'sin(t) '
+
+    fcond1 = fcond11 + ' && ' + fcond12
+    fcond2 = '2 + 4*pow(x[0],2) + 4*pow(x[1],2) + cos(t) + sin(t) < 2*(2*(x[0] + x[1]) + x[0]*cos(t) + x[1]*sin(t))'
+    fcond3 = '2*(1 + 2*pow(x[0],2) + 2*pow(x[1],2) + x[0]*cos(t) + x[1]*sin(t)) < 4*(x[0] + x[1]) + cos(t) + sin(t)'
+
+    # fexpr = fcond1 + ' ? ' + fcase1 + ' : ' + fcase2
+    fexpr = fcond1 + ' ? ' + fcase1 + ' :  (' + fcond2 + ' ? ' + fcase2 + ' :  ( ' + fcond3 + ' ? ' + fcase3 + ' : ' + fcase4 + ' ) )'
+    return fexpr
+
+
+def parabolic_non_smooth_expr():
+    '''
+    Insert docstring here.
+    This string is used for a parabolic RHS, since it includes parameter t.
+     Generates a moving Gaussian bump with a non-differentiable path.
+    :return: non_smooth test case.
+    '''
+    xp1 = '3/8'
+    xc1 = 't<=1||t>4'
+    xp2 = '5/8	'
+    xc2 = '2<t && t<=4'
+    xp3 = '1/8 * (1+2 * t)'
+
+    yp1 = '5/8'
+    yc1 = '1<t && t<=2'
+    yp2 = '1/8 * (9-2 * t)'
+    yc2 = '2<t && t<=3'
+    yp3 = '1/8 * (-3+2 * t)'
+    yc3 = '3<t && t<=4'
+    yp4 = '1/8 * (3+2 * t)'
+
+    y_traj = '(' + yc1 + ' ? ' + yp1 + ' :  (' + yc2 + ' ? ' + yp2 + ' :  ( ' + yc3 + ' ? ' + yp3 + ' : ' + yp4 + ' )))'
+    x_traj = '(' + xc1 + ' ? ' + xp1 + ' :  ( ' + xc2 + ' ? ' + xp2 + ' : ' + xp3 + ' ))'
+
+    b = 'exp(16 + 1/(-0.0625 + pow(x[0] - ' + x_traj + ',2) + pow(x[1] - ' + y_traj + ',2)))'
+    c = 'pow(x[0] - ' + x_traj + ',2) + pow(x[1] - ' + y_traj + ',2) < 0.0625'
+
+    fexpr = c + ' ? ' + b + ' : ' + '0'
+    return fexpr
 
 
 # Compute error in L2 norm
