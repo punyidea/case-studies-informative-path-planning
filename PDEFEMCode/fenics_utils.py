@@ -301,6 +301,8 @@ def sum_of_2d_gaussians(gamma_list,u_max_list,r_list):
         -- 2 * (the gaussian point source centered at [0,1] with radius 0.1)
 
     '''
+    assert(gamma_list.__len__()==u_max_list.__len__())
+    assert(u_max_list.__len__()==r_list.__len__())
     return ' + '.join(gaussian_expression_2D(gamma,u_max,r) for gamma,u_max,r in zip(gamma_list,u_max_list,r_list))
 
 def parabolic_double_bump_expr():
