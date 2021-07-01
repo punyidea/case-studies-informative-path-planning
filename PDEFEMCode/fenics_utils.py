@@ -309,7 +309,7 @@ def parabolic_double_bump_expr():
     '''
     Insert docstring here.
     This string is used for a parabolic RHS, since it includes parameter t.
-     Generates a moving Gaussian bump with a non-differentiable path.
+     Generates two Gaussians moving in circle with oscillating amplitudes, out of phase.
     :return: double_bump test case.
     '''
     fcase1 = '(exp(16)*(exp(-t + 1/(-0.0625 + pow(-0.5 + x[0] + cos(t)/4.,2) + pow(-0.5 + x[1] + sin(t)/4.,' \
