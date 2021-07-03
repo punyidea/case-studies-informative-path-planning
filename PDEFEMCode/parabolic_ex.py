@@ -43,9 +43,6 @@ mesh, fn_space = pde_utils.setup_rectangular_function_space(mesh_p)
 # Time discretization
 dt, times = pde_utils.setup_time_discretization(time_disc_p)
 
-u_ref = fc.Expression('((-3*pow(x[0],2) + 2*pow(x[0],3) + pow(x[1],2)*(-3 + 2*x[1]))*(-1 + cos(3*t)))/4',
-                      degree=2, t=0)
-
 if not var_form_p.rhs_expression_str:
     var_form_p.rhs_expression_str = var_form_fn_handles.rhs_expression(**var_form_p.rhs_exp_params)
 
@@ -76,7 +73,7 @@ for n in range(time_disc_p.Nt):
     # Time update
     t = times[n + 1]
     RHS_fn.t = t  # NB. This change is also reflected inside LHS_int, RHS_int
-    u_ref.t = t
+
     # Solution at this time
     u_current = pde_utils.solve_vp(fn_space, LHS_int, RHS_int)
 
