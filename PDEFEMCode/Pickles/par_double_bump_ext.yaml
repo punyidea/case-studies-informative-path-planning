@@ -29,8 +29,8 @@ rect_mesh:
 
 # Parameters related to the time discretization of the parabolic problem.
 time_disc:
-  T_fin: 100 #Ending time
-  Nt: 100 # If -1, the default is nx*ny distinct timesteps.
+  T_fin: 6.28 #Ending time
+  Nt: 628 # If -1, the default is nx*ny distinct timesteps.
 
 # IO Properties
 io:
