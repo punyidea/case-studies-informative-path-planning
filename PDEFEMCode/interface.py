@@ -117,22 +117,26 @@ class RectangleInterpolator():
     This is an abstract class that stores common parameters of the both custom interpolators.
 
     Initialization parameters:
-    :param mesh: the rectangular fenics mesh object that we used. It is supposed to be composed of uniform rectangular
-    cells, divided into triangles by the down-left to up-right diagonal
-     :param rmesh_p: Parameters which define this  rectangular mesh, RectMeshParams object.
+    :param rmesh_p: Parameters which define this  rectangular mesh, RectMeshParams object.
+        The mesh is supposed to be composed of uniform rectangular cells, divided into triangles by the down-left to
+        up-right diagonal
     :param fem_data: the fenics function to wrap in the interpolator if time_dependent = False,
         the ordered list of all such functions (as time varies), if time_dependent = True
     :param time_dependent. If True, we return the interpolator for the parabolic equation, for the elliptic otherwise.
-    It's False by default.
+        It's False by default.
     :param T_fin. Final time of PDE simulation. Needed if time_dependent = True
-    :param Nt. Number of time intervals in which [0,T_fin] is subdivided for the PDE simulation. Needed if time_dependent
-        = True. fem_data[i] is the PDE at time 0 + T_fin/Nt * i
-    :param time_as_indices. If time_dependent, it lets us switch between 2) and 3) above. True by default.
-    :param verbose: if True, it displays the building status of the time dependent interpolator
+    :param Nt. Number of time intervals in which [0,T_fin] is subdivided for the simulation. Needed if time_dependent
+        = True. fem_data[i] is the PDE at time 0 + T_fin/Nt * i. We therefore have a Nt+1 times discretization.
+    :param time_as_indices. If time_dependent, it lets us switch between modes 2) and 3) of the interpolator.
+        See the actual implementation at FenicsRectangleLinearInterpolator(RectangleInterpolator), for details.
+        It is used for optimization: if True, a time-dependent interpolator will accept time indices corresponding to
+        the different time steps instead of computing nearest neighbor interpolation on actual times.
+        True by default.
+    :param verbose: if True, it displays the building status of the time dependent interpolator.
 
     '''
 
-    def __init__(self, rmesh_p, fem_data, T_fin=None, Nt=None, time_dependent=False, time_as_indices=True, verbose=False):
+    def __init__(self, rmesh_p, fem_data, T_fin=None, Nt=None, time_dependent=False, time_as_indices=False, verbose=False):
         # Some geometric initializations
         pass
         self.nx = rmesh_p.nx
@@ -167,7 +171,7 @@ class RectangleInterpolator():
         self.ey1 = self.y1+self.hy
 
         # To differentiate which interpolator to return. We now generate helping variables that will make interpolation
-        # er later on
+        # easier later on
         self.time_dependent = time_dependent
         self.verbose = verbose
 
@@ -183,23 +187,23 @@ class RectangleInterpolator():
 class FenicsRectangleLinearInterpolator(RectangleInterpolator):
     '''
     Given the fenics solution to the time (in)dependent PDE of the project, it wraps a function object around it.
+
     This new interpolator function can be later called without the need of having fenics installed.
-    This code can more generally work on a single fenics function, or a "time" list of fenics functions.
+    This code can more generally work on any single fenics function, or a "time" list of fenics functions.
 
 
     NOTE: DEPENDENT ON USING RECTANGULAR MESH WITH DOWN/RIGHT diagonals.
-    ASSUMES THE FENICS FUNCTION(s) ARE PIECEWISE AFFINE ON MESH ELEMENTS
+    IDEALLY, THE FENICS FUNCTION(s) ARE PIECEWISE AFFINE ON MESH ELEMENTS, BUT THIS IS NOT NECESSARY
     IF A QUERY POINT (x,y) IS OUTSIDE [a,b]x[c,d], (x,y) IS TRANSFORMED INTO (clip(x,a,c), clip(y,c,d))
 
     Use case and examples
-    Three different version of interpolators can be returned. In any case, if (x,y) is outside the computational domain
-    [a,b]x[c,d], (x,y) is transformed into (clip(x,a,c), clip(y,c,d))
+    Three different version of interpolators can be returned.
 
     1) an interpolator of a function not depending on time. Given an Nx2 matrix P of query points, it returns an N
-    vector containing the evaluation of the Fenics function at every point. It also supports evaluation on one point
+    vector containing the evaluation of the fenics function at every point. It also supports evaluation on one point
     only, however, for efficiency, consider inputting an Nx2 matrix of points, instead of doing N times a single point
     evaluation.
-        u = pde_interface.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, fenics_function)
+        u = interface.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, fenics_function)
         P = np.array[[42,42],[0,1]]
         u(P) # returns a vector of length 2, containing u_fenics([42,42]), u_fenics([0,1])
         Q = np.array([1,2])
@@ -209,13 +213,16 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
     matrix P of size Nx2 or a single point. The times are an array times of length N_times (or a single real number).
     A matrix of size N_times x N is returned. Times that are not exactly in the correct times on which the PDE was
     simulated get mapped to the closest correct time (see example below).
-    This version is to be used during development, it is advised to use 3) in the final version of the code.
+    This version is to be used during development, it is advised to use 3) in the final version of the code. It is
+    activated by time_as_indices = False, the default option.
         T_fin = 1   # the time simulation runs from time 0 to time 1
         Nt = 2  # the time interval [0,T_fin] is subdivided into 0,t_1,t_2,...,t_Nt+1, where t_i+1-t_i=T_fin/Nt
         list_fenics = [fenics_function1, fenics_function2, fenics_function3]    # fenics function at times 0, .5, 1
 
-        2.1) Standard version, i.e. evaluation of fenics_function at all points in P, for every timestamp in times
-            u = pde_interface.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T_fin=T_fin, Nt=Nt, time_dependent=True)
+        2.1) Standard version, i.e. evaluation of a time dependent function, at all points in P.
+        This is repeated for every timestamp in times.
+            u = interface.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T_fin=T_fin, Nt=Nt, time_dependent=True, time_as_indices = False)
+                # list_fenics[i] corresponds to [0, .5, 1][i]
             P = np.array([[5.1, 22], [10, 18], [8, 23]])
             times = [-100, 1, .4, .1]   # vector of times, which differ quite a lot from [0, .5, 1]
             u(P, times) # return u(points in P, t_i) for all t_i of times, a 4x3 matrix
@@ -223,18 +230,18 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
 
         2.2) Trajectory version. The i-th point in P is interpreted as the only query point at time i. Therefore, P
         and times must have the same length, and a vector of this length is outputted. It is fenics_function(P_i,t_i) at
-        every index i
-            u = pde_interface.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T_fin=T_fin, Nt=Nt, time_dependent=True)
+        every index i. Activated by trajectory_mode, = False by default
+            u = interface.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T_fin=T_fin, Nt=Nt, time_dependent=True, trajectory_mode=True, time_as_indices = False)
             P = np.array([[5.1, 22], [10, 18], [8, 23]])
             times = [-100, 1, .4]   # vector of times, same length of P
             u(P, times, trajectory_mode = True) # return a 3 vector
             u(P, trajectory_mode = True) # luckily, [0,.5,1], the times of the PDE simulation, also has length 3, so a 3 vector is returned.
                  # It contains fenics_functioni(P_i) at every index i
 
-     3) almost the same interpolator of 2.2), with the difference that instead of real times, now we must input a list
-     of integer time indices, contained in {0,...,Nt}. No time interpolations/clipping are performed here, to get a
-     faster version (NB. A list!)
-        u = pde_interface.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T_fin=T_fin, Nt=Nt, time_dependent=True,
+    3) almost the same interpolator of 2.2), with the difference that instead of real times, now we must input a list
+    of integer time indices, contained in [0,...,Nt]. No time interpolations/clipping are performed here, to get a
+    faster version (NB. A list!). It is activated by time_as_indices = True.
+        u = interface.FenicsRectangleLinearInterpolator(nx, ny, P0, P1, list_fenics, T_fin=T_fin, Nt=Nt, time_dependent=True,
             time_as_indices = True)
         P = np.array([[5.1, 22], [10, 18], [8, 23]])
         # times = [-100, 1, .4]   # vector of times, same length of P -> it will raise an error
@@ -243,8 +250,6 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
         u(P) # for evaluation of P_i at [0, .5, 1][i], for all i
 
     Input variables. See Abstract RectangleInterpolator class.
-    :param time_as_indices. Used for optimization. Accepts time indices for the different time steps
-        instead of computing nearest neighbor interpolation.
     :return: a function, which when evaluated, gives the function evaluated at the desired space-time coordinates.
     '''
 
@@ -274,6 +279,7 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
             T_glo = []
             Tx_glo = []
             Ty_glo = []
+
             for i in range(len(fem_data)):
 
                 u = fem_data[i]
@@ -294,7 +300,7 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
         '''
         It receives a fenics (non time dependent) function and computes some related helping variables to speed up
         the interpolation process later on.
-        These are T_fin and Tx, Ty.
+        These are T and Tx, Ty.
         For detailed functioning, refer to the pdf of the tecnical documentation.
         '''
 
@@ -471,7 +477,7 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
 
     def __call__(self, *args, **kwargs):
         '''
-        Returns the interpolator function, either time dependent or independent.
+        Returns the desired interpolator function, either time dependent or independent.
         '''
         if not self.time_dependent:
             return self.get_interpolator_elliptic(*args, **kwargs)

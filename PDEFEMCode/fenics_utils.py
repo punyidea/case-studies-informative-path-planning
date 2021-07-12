@@ -127,7 +127,7 @@ def setup_unitsquare_function_space(n):
 
 def setup_rectangular_function_space(rmesh_p):
     """
-    Sets up the dicrete function space on a rectangle with lower left corner P0, upper right corner P1.
+    Sets up the discrete function space on a rectangle with lower left corner P0, upper right corner P1.
     This includes preparing the mesh and basis functions on the mesh.
 
     :param rmesh_p: The RectMeshParams object which describes the structure of the rectangular mesh.
@@ -149,7 +149,7 @@ def setup_rectangular_function_space(rmesh_p):
 
 def setup_time_discretization(time_disc_p):
     """
-    :param time_disc_p: The TimeDiscParams object which describes how the time space is discretised.
+    :param time_disc_p: The TimeDiscParams object which describes how the time space is discretized.
     :return:
         - dt: dt  = time_disc_p.T_fin/time_disc_p.Nt
         - times: a vector of Nt+1 evenly spaced time instants 0, dt, 2*dt, ... time_disc_p.T_fin
@@ -232,11 +232,12 @@ def elliptic_RHS(v_test, RHS_fn, **kwargs):
 
 def heat_eq_LHS(u_trial, v_test, dt=1, alpha=1):
     '''
-    returns the LHS a(u_next, v) of the parabolic problem provided in the project handout:
+    returns the LHS a(u_trial, v) of the parabolic problem provided in the project handout:
     D_t u  - \alpha \Delta u = f, u(0)=0, homogeneous Neumann BC and initial conditions
     as discretized by means of the implicit Euler's method =>
-    a(u_next, v) = \int u_trial * v dx + \int dt * alpha * dot(grad(u_trial), grad(v)) dx
+    a(u_trial, v) = \int u_trial * v dx + \int dt * alpha * dot(grad(u_trial), grad(v)) dx
     L(v) = (u_previous + dt * f) * v * dx
+    u_trial is the solution at current time, u_previous is at last time, and not needed in this routine (see below)
 
     If alpha=dt=1 returns the LHS of the elliptic problem provided in the project handout:
     -\Delta u + u = f  => \int (grad(u) dot grad(v)  + u*x) dx = \int f*v dx
@@ -259,8 +260,9 @@ def heat_eq_RHS(v_test, RHS_fn, dt=1, u_previous=0):
     returns the RHS L(v) = (u_previous + dt * f) * v * dx of the parabolic problem provided in the project handout:
     D_t u  - \alpha \Delta u = f, u(0)=0, homogeneous Neumann BC and initial conditions
     as discretized by means of the implicit Euler's method =>
-    a (u_next, v) = \int u_trial * v dx + \int dt * alpha * dot(grad(u_trial), grad(v)) dx
+    a (u_trial, v) = \int u_trial * v dx + \int dt * alpha * dot(grad(u_trial), grad(v)) dx
     L (v) = (u_previous + dt * f) * v * dx
+    u_trial is the solution at current time, not needed here, u_previous is at last time (see below)
 
     If dt=1, u_previous=0, returns the RHSof the elliptic problem provided in the project handout:
     \Delta u + u = f  => \int (grad(u) dot grad(v)  + u*x) dx = \int f*v dx
@@ -400,7 +402,7 @@ def error_LInf_piece_lin(u_ref, u_sol, mesh):
     return np.max(np.abs(vertex_values_u_D - vertex_values_u))
 
 
-## Interpolating Functions
+## Interpolating Functions (not the self-coded ones, for the latter refer to interface.py)
 
 def fenics_unit_square_function_wrap(mesh, n, u_fenics):
     '''

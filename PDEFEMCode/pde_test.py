@@ -171,7 +171,7 @@ class TestPDEParabolicSolver(TestCase):
         :param fp: lst time discretization (uniform, with 2^fp subdivisions)
 
         It computes:
-            time_array, i.e. a logspace array from 2^ip, to 2^fp, of D entries
+            time_array, i.e. a logspaced array from 2^ip, to 2^fp, of D entries
             N_array, i.e. sqrt(time_array)
         '''
 
@@ -291,6 +291,7 @@ class TestPDEParabolicSolver(TestCase):
     def test_easy_polynomial(self):
 
         '''
+        Check the technical documentation to see the precise functional form in a human-readable format.
         Expected behaviour: the L2 error should be O(h^2).
         '''
 
@@ -327,6 +328,7 @@ class TestPDEParabolicSolver(TestCase):
     def test_constant(self):
 
         '''
+        Check the technical documentation to see the precise functional form in a human-readable format.
         Expected behaviour: the exact solution (up to machine precision) is computed.
         '''
 
@@ -343,6 +345,7 @@ class TestPDEParabolicSolver(TestCase):
 
     def test_moving_bump(self):
         '''
+        Check the technical documentation to see the precise functional form in a human-readable format.
         Expected behaviour: loglog(time_array, err_tot) and loglog(time_array, 1/time_array) should be parallel, in the
         L2 norm (at least, asymptotically). I.e. we want order of convergence asymptotically close to 1
         '''
@@ -384,6 +387,7 @@ class TestPDEParabolicSolver(TestCase):
     def test_moving_bumps(self):
 
         '''
+        Check the technical documentation to see the precise functional form in a human-readable format.
         Expected behaviour: the code runs without errors. No analytical solution is provided here, this is just a test
         for conditional expressions.
         '''
@@ -406,6 +410,7 @@ class TestPDEParabolicSolver(TestCase):
     def test_polynomial(self):
 
         '''
+        Check the technical documentation to see the precise functional form in a human-readable format.
         Expected behaviour: loglog(time_array, err_tot) and loglog(time_array, 1/time_array) should be parallel, in the
         L2 norm (at least, asymptotically). I.e. we want order of convergence asymptotically close to 1
         '''
@@ -430,6 +435,7 @@ class TestPDEParabolicSolver(TestCase):
 
     def test_non_smooth(self):
         '''
+        Check the technical documentation to see the precise functional form in a human-readable format.
         Expected behaviour: the code runs without errors. No analytical solution is provided here, this is just a test
         for conditional expressions.
         '''
