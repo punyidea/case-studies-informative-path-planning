@@ -35,5 +35,5 @@ time_disc:
 # IO Properties
 io:
   out_file_prefix: 'par_moving_bump_fast' #file name without the default .pkl extension.
-  out_folder: 'PDEFEMCode/Pickles'#Path to file. Leave blank to save in the current directory.
+  out_folder: 'Pickles'#Path to file. Leave blank to save in the current directory.
 
