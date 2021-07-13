@@ -7,6 +7,7 @@ import PDEFEMCode.interface as pde_IO
 import fenics as fc
 import numpy as np
 import os
+import warnings
 
 
 ## Helper functions used in testing only.###
@@ -25,7 +26,6 @@ def eval_hat(X, Y):
 
 ## Begin Testing code.
 class TestEllipticSolver(TestCase):
-    # todo (Victor): check linearity of PDE solver by checking that multiple bump solution is sum of bumps.
     @classmethod
     def setUpClass(self):
         self.n = 100
@@ -642,12 +642,15 @@ class TestInterpolators(unittest.TestCase):
                                        PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[1], coords),
                                        0, decimal=6)
         #invalid time
-        try:
-            grad_approxim(coords,1.2)
-        except ValueError:
-            pass
-        else:
-            raise Exception('Did not raise exception with bad time.')
+        with warnings.catch_warnings():
+            warnings.filterwarnings('error')
+            try:
+                grad_approxim(coords, 1.2)
+            except Warning:
+                pass
+            else:
+                raise("Did not make warning with a bad time.")
+
 
         #1d coords
         eps = 1e-4
@@ -658,7 +661,7 @@ class TestInterpolators(unittest.TestCase):
         approx_grad_eval = grad_approxim(coords,t)
 
         np.testing.assert_almost_equal(approx_grad_eval[t <=.5,:],
-PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[0], coords[t <=.5,:]),
+            PDEFEMCode.interface.native_fenics_eval_vec(u_fenics_grad_list[0], coords[t <=.5,:]),
                                        )
 
         np.testing.assert_almost_equal(approx_grad_eval[t > .5, :],

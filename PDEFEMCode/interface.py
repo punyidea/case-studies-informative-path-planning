@@ -4,6 +4,7 @@ import numpy as np
 import typing
 import yaml
 from dataclasses import dataclass, field
+import warnings
 
 
 
@@ -425,7 +426,7 @@ class FenicsRectangleLinearInterpolator(RectangleInterpolator):
             eps = 1e-5
             time_ind = times / self.dt
             if np.any(np.logical_or(time_ind < 0, time_ind > self.Nt + eps)):
-                print('Warning: a time supplied was out of bounds. Check that times are in interval [0,{}]'.format(self.T_fin))
+                warnings.warn('Warning: a time supplied was out of bounds. Check that times are in interval [0,{}]'.format(self.T_fin))
             t_ind = np.clip(np.round(time_ind), 0, self.Nt).astype(int).tolist()
             # if not trajectory_mode:
             #     eps = 1e-5
@@ -614,8 +615,8 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
                 eps = 1e-5
                 time_ind = times/self.dt
                 if np.any(np.logical_or(time_ind < 0, time_ind > self.Nt + eps)):
-                    raise ValueError('A time supplied was out of bounds. Check that times are in interval [0,{}]'.format(self.T_fin))
-                time_ind = np.round(time_ind).astype(int)
+                    warnings.warn('Warning: a time supplied was out of bounds. Check that times are in interval [0,{}]'.format(self.T_fin))
+                time_ind = np.clip(np.round(time_ind),0,self.Nt).astype(int)
 
             out_arr = self.T_grads[time_ind,index_int[..., 0], index_int[..., 1], type_def, :]
 
