@@ -12,7 +12,14 @@ import warnings
 
 ## Helper functions used in testing only.###
 
+def eval_hat(X, Y):
+    return 1 - 2 * np.maximum(np.abs(X - .5), np.abs(Y - .5))
+
 def grad_hat_ref(X, Y):
+    '''
+    the gradient of a "hat function" that is 1 at 0.5,0.5,
+    and 0 on the boundary of the unit square.
+    '''
     X_center, Y_center = 0.5 - X, 0.5 - Y
     Y_geq_X = np.abs(Y_center) >= np.abs(X_center)
     in_b = np.logical_not( np.logical_or(np.abs(X_center)>0.5,np.abs(Y_center)>0.5) )
@@ -20,8 +27,7 @@ def grad_hat_ref(X, Y):
            np.array([2, 0]) * (np.logical_and(np.logical_not(Y_geq_X),in_b) * np.sign(X_center))[..., np.newaxis]
 
 
-def eval_hat(X, Y):
-    return 1 - 2 * np.maximum(np.abs(X - .5), np.abs(Y - .5))
+
 
 
 ## Begin Testing code.

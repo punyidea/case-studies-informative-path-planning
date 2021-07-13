@@ -586,18 +586,22 @@ class FenicsRectangleVecInterpolator(RectangleInterpolator):
         # coords_rs = np.reshape(coords, (-1, coords_shape[-1]))
 
         index_float = (coords - [self.x0, self.y0]) / [self.hx, self.hy]
-        eps = 1e-4
+
+        # keep track of which points were out of bounds and in which index. Then clip.
         oob = np.logical_or(index_float < [0,0], index_float > [self.nx,self.ny])
+        index_float = np.clip(index_float, [0, 0], [self.nx, self.ny])
 
-        index_float = np.clip(index_float, [0, 0], [self.nx - eps, self.ny - eps])
-        # assert((index_float<=[self.nx,self.ny]).all())# are we in bounds?
-        # assert((index_float>=0).all()) #are we in bounds?
-
+        # generate an array of indices, where in the last dim, the i-th coordinate is the index in the i-th dimension
         index_int, frac_index = np.divmod(index_float, 1)
         index_int = index_int.astype(int)
 
-        # if type_def is 0, it is a BR_triangle
-        type_def = (frac_index[..., 0] < frac_index[..., 1]).astype(int)  # If 0, dw triangle
+        # handle boundary cases gracefully
+        frac_index[index_float == [self.nx, self.ny]] = 1
+        index_int[index_float == [self.nx,self.ny]] -= 1
+
+        # if type_def is 0, it is a BR_triangle.
+        # type_def is has shape frac_index.shape[:-1]
+        type_def = (frac_index[..., 0] < frac_index[..., 1]).astype(int)
 
         if not self.time_dependent:
             out_arr = self.T_grads[index_int[..., 0], index_int[..., 1], type_def, :]
