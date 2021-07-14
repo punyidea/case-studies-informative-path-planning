@@ -1,3 +1,4 @@
+import argparse
 import os, pickle
 
 import numpy as np
@@ -18,6 +19,19 @@ def yaml_load(fname):
     with open(fname,'r') as filep:
         par_obj = yaml.load(filep)
     return par_obj
+def parse_args_cli():
+    '''
+    Adds functionality to a file, to read in parameters from a yaml file.
+    Adds requirement to file, that it is executed with either "-y FNAME" or "--yaml_fname FNAME,"
+        where FNAME is the name of the YAML parameter file where parameters are stored
+    :return: params_yml: the native output of PYYAML after
+            args: list of all arguments provided to the script
+    '''
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-y','--yaml_fname',required=True)
+    args = parser.parse_args()
+    params_yml = yaml_load(args.yaml_fname)
+    return params_yml,args
 
 @dataclass
 class RectMeshParams:
@@ -660,3 +674,5 @@ def native_fenics_eval_vec(vec_fenics, coords):
     for ind, coord in enumerate(coords_reshape):
         vec_fenics.eval(out_arr[ind], coord)
     return out_arr.reshape(out_arr_shape)
+
+

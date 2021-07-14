@@ -79,8 +79,8 @@ class TestEllipticSolver(TestCase):
         error_L2, error_LInf, _ = self.solve_obtain_error(RHS_fn, u_ref)
         print('Constant function error_L2  =', error_L2)
         print('Constant function error_Linf =', error_LInf)
-        np.testing.assert_almost_equal(error_L2, 0, decimal=10)
-        np.testing.assert_almost_equal(error_LInf, 0, decimal=10)
+        np.testing.assert_almost_equal(error_L2, 0, decimal=8)
+        np.testing.assert_almost_equal(error_LInf, 0, decimal=8)
 
     def test_PDE_solve_sines(self):
         # Constant function is supplied.

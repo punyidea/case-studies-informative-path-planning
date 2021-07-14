@@ -1,6 +1,7 @@
 # This is a YAML file which contains sample parameters to run elliptic_ex.py
 # Note: Please note that the indentation is important to the processing of this file.
 # Lines starting with '# 'are comments and are ignored, as in Python.
+# Variational form is elliptic with a Gaussian Point source RHS.
 
 # Parameters related to PDE variational form.
 var_form:
@@ -8,7 +9,7 @@ var_form:
   # Elliptic_LHS and Elliptic_RHS forms used together solve
   # \int \nabla u \cdot \nabla v + uv dx = \int f*v dx
   # (The weak formulation of -\nabla^2 u + u = f).
-  #Note: Homogeneous Von Neumann Boundary conditions are assumed on the unit square.
+  #Note: Homogeneous Neumann Boundary conditions are assumed on the unit square.
 
   LHS_form_str:    'elliptic_LHS'
     # function defined in fenics_utils.py.
@@ -27,7 +28,7 @@ var_form:
                     #   maximum of the function used in the RHS.
     r: .05          # radius parameter
 
-    #Note: Homogeneous Von Neumann Boundary conditions are assumed on the unit square.
+    #Note: Homogeneous Neumann Boundary conditions are assumed on the unit square.
 
 # Parameters determining the mesh.
 # As is, it is a square 0.01 step size mesh on the unit square
@@ -41,5 +42,5 @@ rect_mesh:
 # IO Properties
 # Parameters which determine where the file is saved.
 io:
-  out_file_prefix: 'elliptic_square_mesh_interp' #file name without the default .pkl extension.
-  out_folder: '' #Path to file. Leave blank to save in the current directory.
+  out_file_prefix: 'elliptic_params' #file name without the default .pkl extension.
+  out_folder: 'PDEFEMCode/Pickles' #Path to file. Leave blank to save in the current directory.

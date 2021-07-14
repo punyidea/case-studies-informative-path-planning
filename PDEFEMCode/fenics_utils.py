@@ -225,7 +225,6 @@ def elliptic_RHS(v_test, RHS_fn, **kwargs):
     :param v_test: The test function space defined on the FENICS Fn space.
         (You obtain this by calling u_test = fc.TestFunction(V))
     :param RHS_fn: a FENICS function evaluated on the function space.
-        (obtained by calling fc.
     :return: an integral form of the equation, ready to be used in solve_pde.
     '''
     return RHS_fn * v_test * fc.dx
@@ -283,7 +282,7 @@ def heat_eq_RHS(v_test, RHS_fn, dt=1, u_previous=0):
 
 def gaussian_expression_2D(gamma,u_max,r):
     '''
-    Returns a fenics string which computes the gaussian in 2D.
+    Returns a fenics string which represents a Gaussian point source in 2D.
     :param gamma: shape (2,) the center of the gaussian point source
     :param u_max: Height scaling parameter.
     :param r: radius parameter.
@@ -293,8 +292,8 @@ def gaussian_expression_2D(gamma,u_max,r):
 
 def sum_of_2d_gaussians(gamma_list,u_max_list,r_list):
     '''
-    Returns a fenics expression that is the sum of gaussians
-    :param gamma_list: a list of
+    Returns a fenics expression that is the sum of gaussian point sources
+    :param gamma_list: a list of centers, each length 2
     :param u_max_list: list of the scaling constants multiplying each gaussian
     :param r_list: radius parameter of each gaussian.
     :return: Example: sum_of_2d_gaussians([[0,0],[0,1], [.3,2],[0.05,0.1])
