@@ -59,7 +59,7 @@ def solve_parabolic_problem(in_params):
 
     # Setup variational formulation, tying the LHS form with the trial function
     # and the RHS form with the test functions and the RHS function.
-    u_initial = fc.interpolate(fc.Constant(0), fn_space)  # the solution is zero according to our problem formulation
+    u_initial = fc.interpolate(fc.Constant(0), fn_space)  # the initial solution is zero according to our problem formulation
     u_trial = fc.TrialFunction(fn_space)
     v_test = fc.TestFunction(fn_space)
 
