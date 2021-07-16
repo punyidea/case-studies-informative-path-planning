@@ -14,7 +14,7 @@ On a high level, the code
     (3) saves the results out to a .pickle file.
 
 The code is run as follows:
-    elliptic_ex -y param_file.yaml
+    python elliptic_ex.py -y param_file.yaml
 
     where param_file.yaml is structured like the example elliptic_params.yaml test case which generated.
     A result pickle file will be saved where the structure's io params determine.

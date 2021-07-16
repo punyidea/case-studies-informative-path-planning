@@ -83,7 +83,10 @@ class TestEllipticSolver(TestCase):
         np.testing.assert_almost_equal(error_LInf, 0, decimal=8)
 
     def test_PDE_solve_sines(self):
-        # Constant function is supplied.
+        '''
+        Quick numerical test on analyical example for the PDE.
+        :return:
+        '''
         # The solver is expected to return the same constant.
 
         RHS_fn = fc.Expression('(2*pi*pi + 1)*sin(pi*x[0] + pi/2)*sin(pi*x[1]+pi/2)',
@@ -99,6 +102,11 @@ class TestEllipticSolver(TestCase):
         # 5e-4 error reported in test MATLAB code.
 
     def testConvergenceOrder(self):
+        '''
+        Performs an order of convergence test, expected 2, using RHS function
+        sin(pi*x-pi/2)*(sin(pi*y*pi/2))
+        :return:
+        '''
         RHS_fn = fc.Expression('(2*pi*pi + 1)*sin(pi*x[0] + pi/2)*sin(pi*x[1]+pi/2)',
                                element=self.fn_space.ufl_element())
         u_ref = fc.Expression('sin(pi*x[0] + pi/2)*sin(pi*x[1]+pi/2)',
