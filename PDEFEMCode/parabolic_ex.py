@@ -38,7 +38,7 @@ def solve_parabolic_problem(in_params):
     :param in_params: type ParabolicRunParams
         A Dataclass struct containing all parameters necessary to run a single solution.
     :return: tuple:
-        param_save: a dictionary containing:
+        param_save: a dictionary containing (notation here consistent with optimization/Program description):
             f: function interpolator class FenicsRectangleLinearInterpolator
             grad_f: gradient evaluator class    FenicsRectangleVecInterpolator
             param: the parameter struct used to run this script.
@@ -103,7 +103,7 @@ def solve_parabolic_problem(in_params):
     grad_u_list = [pde_utils.fenics_grad(mesh,u_fenics) for u_fenics in fenics_list]
     grad_u = pde_interface.FenicsRectangleVecInterpolator(mesh_p, grad_u_list, T_fin=time_disc_p.T_fin, Nt=time_disc_p.Nt, time_dependent=True, time_as_indices=True)
 
-    # Organize and save final results.
+    # Organize and save final results. Notation of return result consistent with optimization.
     param_save = {'f':u,'grad_f':grad_u,'params':in_params}
     return param_save,fenics_list,grad_u_list
 

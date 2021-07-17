@@ -2,6 +2,10 @@
 Contains functions that (arguably) simplify FENICS' API.
 Documentation assumes that fenics 2019.1.0 is used, and imported by
     import fenics as fc
+
+Note: In this document, we break notation with the project description
+    and use $u$ for the PDE solution and $f$ for the source term.
+    This is to be consistent with FEniCS notation.
 '''
 import fenics as fc
 import numpy as np
