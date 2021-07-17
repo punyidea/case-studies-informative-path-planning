@@ -9,16 +9,16 @@ In the context of the project, this file was used to generate the
     source terms on the RHS. See parameter files with more detail.
 
 On a high level, the code:
-    (0) reads in parameters from a .yaml file and parses them into an EllipticRunParams struct.
+    (0) reads in parameters from a .yaml file and parses them into a ParabolicRunParams struct.
     (1) solves the heat equation at each time step using the implicit Euler method, generating
             equation LHS(t) = RHS(t).
-    (2) generates custom numpy interpolators of the solution function and its gradient.
-    (3) saves the results out to a .pickle file.
+    (2) generates custom Numpy interpolators of the solution function and its gradient.
+    (3) saves the results out to a  Python pickle (.pkl) file.
 
 The code is run as follows:
-    parabolic_ex -y param_file.yaml
+    python parabolic_ex.py -y param_file.yaml
 
-    where param_file.yaml is structured like, e.g. par_moving_bump.yaml test case which generated.
+    where param_file.yaml is structured like, e.g. par_moving_bump_slow.yaml test case.
     A result pickle file will be saved where the structure's io params determine.
 '''
 
@@ -35,7 +35,7 @@ def solve_parabolic_problem(in_params):
     The mesh structure is assumed to be a rectangular Friedrics-Keller triangulation,
         the same as the interpolator structure assumes.
     Input/Output:
-    :param in_params: type EllipticRunParams
+    :param in_params: type ParabolicRunParams
         A Dataclass struct containing all parameters necessary to run a single solution.
     :return: tuple:
         param_save: a dictionary containing:

@@ -282,8 +282,8 @@ def heat_eq_RHS(v_test, RHS_fn, dt=1, u_previous=0):
 
 def gaussian_expression_2D(gamma,u_max,r):
     '''
-    Returns a fenics string which represents a Gaussian point source in 2D.
-    :param gamma: shape (2,) the center of the gaussian point source
+    Returns a fenics string which represents a Gaussian source in 2D.
+    :param gamma: shape (2,) the center of the gaussian source
     :param u_max: Height scaling parameter.
     :param r: radius parameter.
     :return: the string representation
@@ -298,8 +298,8 @@ def sum_of_2d_gaussians(gamma_list,u_max_list,r_list):
     :param r_list: radius parameter of each gaussian.
     :return: Example: sum_of_2d_gaussians([[0,0],[0,1], [.3,2],[0.05,0.1])
         returns the sum of: t
-        -- 0.3 *(the gaussian point source centered at the origin with radius 0.05)
-        -- 2 * (the gaussian point source centered at [0,1] with radius 0.1)
+        -- 0.3 *(the gaussian source centered at the origin with radius 0.05)
+        -- 2 * (the gaussian source centered at [0,1] with radius 0.1)
 
     '''
     assert(gamma_list.__len__()==u_max_list.__len__())
@@ -338,7 +338,6 @@ def parabolic_double_bump_expr():
 
 def parabolic_non_smooth_expr():
     '''
-    Insert docstring here.
     This string is used for a parabolic RHS, since it includes parameter t.
      Generates a moving Gaussian bump with a non-differentiable path.
     :return: non_smooth test case.
