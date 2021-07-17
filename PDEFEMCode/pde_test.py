@@ -557,6 +557,53 @@ class TestInterpolators(unittest.TestCase):
         mineO = wrapO(P[[2,0,0], :], [2, 0, 0])
         np.testing.assert_almost_equal(np.max(np.abs(mineO - not_mine[[2,0,0]])), 0, decimal=8)
 
+    def test_runtime(self):
+
+        #A quick comparison in runtimes between our (time-dependent) interpolator, and fenics' way of doing that
+
+        #Here are the space-time discretization parameters
+        rmesh_p = pde_IO.RectMeshParams(nx=100,
+                                        ny=100,
+                                        P0=np.array([0, 0]),
+                                        P1=np.array([1, 1]))
+        mesh, fn_space = pde_utils.setup_rectangular_function_space(rmesh_p)
+        T_fin = 1
+        Nt = 100
+
+        #Let's generate a list of fenics functions
+        f = fc.interpolate(fc.Expression('3*x[0]+pow(x[1],2)+cos(100*x[0])', degree=1), fn_space)
+        list_fenics = []
+        for i in range(Nt+1):
+            list_fenics.append(f)
+
+        #And now our interpolator
+        interp = pde_IO.FenicsRectangleLinearInterpolator(rmesh_p, list_fenics, T_fin=T_fin, Nt=Nt, time_dependent=True,
+                                                 time_as_indices=True, verbose=True)
+
+        #Here are some random points in the unit square
+        P = np.random.rand(Nt+1,2)
+
+        #Starting the time tests
+        import time
+
+        iter = 100    #How many full trajectory evaluations?
+
+        ts = time.time()
+        for i in range(iter):
+            for j in range(Nt+1):
+                list_fenics[j](P[j,:])
+        tf = time.time()-ts
+        print('Fenics time: ', ts)
+
+        ts = time.time()
+        for i in range(iter):
+            interp(P)
+        to = time.time()-ts
+        print('Our time: ', to)
+
+        print('Our code ran ', to/tf, ' times faster.')
+
+
     def test_elliptic_interp(self):
         rmesh_p = pde_IO.RectMeshParams(nx = 2,
                                         ny = 2,
