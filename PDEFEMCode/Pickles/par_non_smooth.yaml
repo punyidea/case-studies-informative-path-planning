@@ -16,7 +16,7 @@ var_form:
                             # generates a valid FEniCS string. See elliptic_params for an example
   rhs_exp_params: {} #any extra keyword arguments to the function in rhs_expression_fn_str. If empty, use {}.
   #Note: Homogeneous Von Neumann Boundary conditions are assumed on the unit square.
-
+  #Note: Hear equation parameter alpha = 1.
 
 # Parameters determining the mesh.
 # As is, it is a square 0.05 step size mesh on the unit square

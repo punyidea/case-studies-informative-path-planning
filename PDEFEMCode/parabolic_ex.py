@@ -34,6 +34,8 @@ def solve_parabolic_problem(in_params):
     Solves a single PDE with variational forms given in the parameter struct.
     The mesh structure is assumed to be a rectangular Friedrics-Keller triangulation,
         the same as the interpolator structure assumes.
+    Note: heat equation parameter \alpha = 1.
+
     Input/Output:
     :param in_params: type ParabolicRunParams
         A Dataclass struct containing all parameters necessary to run a single solution.
