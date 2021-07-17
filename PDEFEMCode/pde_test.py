@@ -186,7 +186,8 @@ class TestPDEParabolicSolver(TestCase):
 
         It computes:
             time_array, i.e. a logspaced array from 2^ip, to 2^fp, of D entries
-            N_array, i.e. sqrt(time_array)
+            N_array, i.e. sqrt(time_array) (every entry represents a number side cells
+            for a spatial discretization)
         '''
 
         self.D = D  # how many times do we want to do solve our problem ?
@@ -207,7 +208,8 @@ class TestPDEParabolicSolver(TestCase):
         :param Nt: only one temporal size
 
         It computes:
-            N_array, i.e. a logspace array from 2^ip, to 2^fp, of D entries
+            N_array, i.e. a logspace array from 2^ip, to 2^fp, of D entries (every entry represents a number side cells
+            for a spatial discretization)
             time_array = repeated Nt to match the length of N_array
         '''
 
