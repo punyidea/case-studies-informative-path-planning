@@ -1,0 +1,45 @@
+# This is a YAML file which contains sample parameters to run elliptic_ex.py
+# Note: Please note that the indentation is important to the processing of this file.
+# Lines starting with '# 'are comments and are ignored, as in Python.
+
+# Parameters related to PDE variational form.
+var_form:
+  # Parameters which define the variational form type.
+  # Elliptic_LHS and Elliptic_RHS forms used together solve
+  # \int \nabla u \cdot \nabla v + uv dx = \int f*v dx
+  # (The weak formulation of -\nabla^2 u + u = f).
+  #Note: Homogeneous Von Neumann Boundary conditions are assumed on the unit square.
+
+  LHS_form_str:    'elliptic_LHS'
+    # function defined in fenics_utils.py.
+  RHS_form_str:    'elliptic_RHS'
+    # function defined in fenics_utils.py
+
+  #Parameters related to the RHS
+  rhs_expression_str: '' # Instead of a function which constructs a string, one can choose to
+                         # use a valid FEniCS expression. See parabolic_params.yaml for an example.
+  rhs_expression_fn_str: 'sum_of_2d_gaussians' # Gaussian RHS function f is of form exp(-norm(x-gamma)^2/r).
+                                              # The function which generates the correct FEniCS string is called
+                                              # gaussian_expression_2D and is defined in fenics_utils.py.
+  rhs_exp_params: #keyword arguments to the function in rhs_expression_fn_str. If no function is provided, please use {}, as in parabolic_params.yaml.
+    gamma_list: [[ .7,.5 ], [.65,.45], [.3,.7],[.4,.6],[.85,.85]] # coordinates of Gaussian point source
+    u_max_list: [1.1, .2, 32, 42,1.5]        # scaling constant which defines the
+                    #   maximum of the function used in the RHS.
+    r_list: [.05, .15, .01, .005,.03]          # radius parameter
+
+    #Note: Homogeneous Von Neumann Boundary conditions are assumed on the unit square.
+
+# Parameters determining the mesh.
+# As is, it is a square 0.01 step size mesh on the unit square
+rect_mesh:
+  nx: 100 # number of divisions of the unit interval in x, included in the mesh.
+  # There are nx + 1 distinct x coordinates in the mesh.
+  ny: 100 # same as above, for y.
+  P0: [0,0] # Coordinates of the bottom left of the rectangular mesh.
+  P1: [1,1] # Coordinates of the top right of the rectangular mesh
+
+# IO Properties
+# Parameters which determine where the file is saved.
+io:
+  out_file_prefix: 'elliptic_multi_gaussian' #file name without the default .pkl extension.
+  out_folder: 'PDEFEMCode/Pickles' #Path to file. Leave blank to save in the current directory.
