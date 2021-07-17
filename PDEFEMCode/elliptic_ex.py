@@ -34,7 +34,7 @@ def solve_single_variation_eq(in_params):
     :param in_params: type EllipticRunParams
         A Dataclass struct containing all parameters necessary to run a single solution.
     :return: tuple:
-        param_save: a dictionary containing:
+        param_save: a dictionary containing (notation here consistent with optimization/Program description):
             f: function interpolator class FenicsRectangleLinearInterpolator
             grad_f: gradient evaluator class    FenicsRectangleVecInterpolator
             param: the parameter struct used to run this script.
@@ -69,7 +69,7 @@ def solve_single_variation_eq(in_params):
     u_grad = pde_utils.fenics_grad(mesh,u_sol)
     grad_f = pde_interface.FenicsRectangleVecInterpolator(mesh_p, u_grad)
 
-    # Organize results, and return
+    # Organize results, and return. Variable renamed for consistency with optimization notation.
     param_save = {'f':f,'grad_f':grad_f,'params':in_params}
     return param_save, u_sol,u_grad
 
