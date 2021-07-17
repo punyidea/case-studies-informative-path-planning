@@ -575,7 +575,7 @@ class TestInterpolators(unittest.TestCase):
                                         P1=np.array([1, 1]))
         mesh, fn_space = pde_utils.setup_rectangular_function_space(rmesh_p)
         T_fin = 1
-        Nt = 100
+        Nt = 200
 
         #Let's generate a list of fenics functions
         f = fc.interpolate(fc.Expression('3*x[0]+pow(x[1],2)+cos(100*x[0])', degree=1), fn_space)
@@ -593,14 +593,14 @@ class TestInterpolators(unittest.TestCase):
         #Starting the time tests
         import time
 
-        iter = 100    #How many full trajectory evaluations?
+        iter = 10000    #How many full trajectory evaluations?
 
         ts = time.time()
         for i in range(iter):
             for j in range(Nt+1):
                 list_fenics[j](P[j,:])
         tf = time.time()-ts
-        print('Fenics time: ', ts)
+        print('Fenics time: ', tf)
 
         ts = time.time()
         for i in range(iter):
@@ -608,7 +608,7 @@ class TestInterpolators(unittest.TestCase):
         to = time.time()-ts
         print('Our time: ', to)
 
-        print('Our code ran ', to/tf, ' times faster.')
+        print('Our code ran ', tf/to, ' times faster.')
 
 
     def test_elliptic_interp(self):
