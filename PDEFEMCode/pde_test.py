@@ -84,7 +84,7 @@ class TestEllipticSolver(TestCase):
 
     def test_PDE_solve_sines(self):
         '''
-        Quick numerical test on analyical example for the PDE.
+        Quick numerical test on analyical example for the PDE, based on example in original FEM code.
         :return:
         '''
         # The solver is expected to return the same constant.
@@ -104,7 +104,7 @@ class TestEllipticSolver(TestCase):
     def testConvergenceOrder(self):
         '''
         Performs an order of convergence test, expected 2, using RHS function
-        sin(pi*x-pi/2)*(sin(pi*y*pi/2))
+        sin(pi*x-pi/2)*(sin(pi*y*pi/2)). Technical documentation modifies this example.
         :return:
         '''
         RHS_fn = fc.Expression('(2*pi*pi + 1)*sin(pi*x[0] + pi/2)*sin(pi*x[1]+pi/2)',
@@ -482,7 +482,10 @@ class TestInterpolators(unittest.TestCase):
         self.mesh, self.fn_space = pde_utils.setup_unitsquare_function_space(self.n)
 
     def test_fenics_interpolate_bilin(self):
-
+        '''
+        Tests the scipy bilinear interpolator of FEniCS' function.
+        :return:
+        '''
         affine_fc = fc.Expression('1 + 3*x[0] + 4*x[1]',
                                   element=self.fn_space.ufl_element())
         affine_np = pde_utils.fenics_unit_square_function_wrap(self.mesh, self.n, affine_fc)
@@ -492,6 +495,10 @@ class TestInterpolators(unittest.TestCase):
         np.testing.assert_almost_equal(eval_ref, eval_wrap)
 
     def test_parabolic_interp(self):
+        '''
+        Tests the native linear interpolator in parabolic case.
+        :return:
+        '''
         rmesh_p = pde_IO.RectMeshParams(nx = 5,
                                         ny = 6,
                                         P0 = np.array([4, 1]),
@@ -558,6 +565,10 @@ class TestInterpolators(unittest.TestCase):
         np.testing.assert_almost_equal(np.max(np.abs(mineO - not_mine[[2,0,0]])), 0, decimal=8)
 
     def test_elliptic_interp(self):
+        '''
+        Tests the custom linear interpolator in elliptic (time-independent) case.
+        :return:
+        '''
         rmesh_p = pde_IO.RectMeshParams(nx = 2,
                                         ny = 2,
                                         P0 = np.array([1, 1]),
@@ -582,6 +593,10 @@ class TestInterpolators(unittest.TestCase):
 
 
     def test_fenics_lin_interpolator_rectangle_right(self):
+        '''
+        Tests the custom linear interpolator in elliptic (time-independent) case.
+        :return:
+        '''
         rmesh_p = pde_IO.RectMeshParams(nx = 2,
                                         ny = 2,
                                         P0 = np.array([0, 0]),
@@ -598,6 +613,10 @@ class TestInterpolators(unittest.TestCase):
         print(wrap(P))
 
     def test_fenics_grad_interpolator_rectangle_right(self):
+        '''
+        Tests the custom linear gradient interpolator in elliptic (time-independent) case.
+        :return:
+        '''
         rmesh_p = pde_IO.RectMeshParams(nx = 5,
                                         ny = 6,
                                         P0 = np.array([4, 1]),
@@ -630,6 +649,10 @@ class TestInterpolators(unittest.TestCase):
 
 
     def test_fenics_grad_interpolator_rectangle_right_parabolic(self):
+        '''
+        Tests the custom linear gradient interpolator in parabolic (time-dependent) case.
+        :return:
+        '''
         rmesh_p = pde_IO.RectMeshParams(nx = 5,
                                         ny = 6,
                                         P0 = np.array([4, 1]),
@@ -730,6 +753,8 @@ class TestInterpolators(unittest.TestCase):
 class TestFenicsFnWrap(unittest.TestCase):
     '''
     Tests the wrappers of fenics built-in functions.
+    These functions evaluate FEniCS functions on more
+    than one point at a time, extending original functionality.
     '''
 
     def setUp(self):
@@ -761,6 +786,10 @@ class TestFenicsFnWrap(unittest.TestCase):
         test_xy(X, Y)
 
     def test_fenics_grad_wrap_affine(self):
+        '''
+        Verify that the FEniCS gradient actually returns the gradient.
+        :return:
+        '''
         def test_xy(X, Y):
             ref_sol = affine_grad_ref_f(X, Y)
             coords = np.stack((X, Y), axis=-1)
@@ -788,6 +817,10 @@ class TestFenicsFnWrap(unittest.TestCase):
 
 
     def test_fenics_grad_wrap_hat(self):
+        '''
+        Verify that the FEniCS gradient actually returns the gradient.
+        :return:
+        '''
         def test_xy(X, Y):
             ref_sol = grad_hat_ref(X, Y)
             coords = np.stack((X, Y), axis=-1)
